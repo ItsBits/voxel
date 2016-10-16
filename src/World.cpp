@@ -467,7 +467,7 @@ void World::draw()
 
         // TODO: upload mesh
 
-        // TODO: add mesh to tasks.render
+        tasks.render.push_back({ task.index });
 
         tasks.upload.pop_back();
     }
