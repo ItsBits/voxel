@@ -3,7 +3,7 @@
 #include "Mouse.hpp"
 #include "Keyboard.hpp"
 #include <iostream>
-#include <thread>
+#include <glm/gtc/type_ptr.hpp>
 
 //==============================================================================
 Voxel::Voxel(const char * location) :
@@ -15,39 +15,43 @@ Voxel::Voxel(const char * location) :
                     { "shader/block.frag", GL_FRAGMENT_SHADER }
             }
     }
-{}
+{
+  m_block_shader.use();
+  m_block_VP_matrix_location = glGetUniformLocation(m_block_shader.id(), "VP_matrix");
+}
 
 //==============================================================================
 void Voxel::run()
 {
     m_window.makeContextCurrent();
-    // m_window.lockMouse();
+    m_window.lockMouse();
+
+    double last_time = glfwGetTime();
 
     while (!m_window.exitRequested())
     {
+        const double current_time = glfwGetTime();
+        double delta_time = current_time - last_time;
+        last_time = current_time;
+
         glfwPollEvents();
 
-        const auto mouse_pos = Mouse::getPointerMovement();
-        const auto mouse_scroll = Mouse::getScrollMovement();
-        const auto button_1 = Mouse::getButtonStatus(0);
-        const auto button_2 = Mouse::getButtonStatus(1);
-        const auto key_u = Keyboard::getKey(GLFW_KEY_U);
-
-        std::cout
-                << mouse_pos(0) << '|' << mouse_pos(1) << '|'
-                << mouse_scroll(0) << '|' << mouse_scroll(1) << '|'
-                << static_cast<bool>(button_1) << '|'
-                << static_cast<bool>(button_2) << '|'
-                << static_cast<bool>(key_u)
-                << std::endl;
+        // update position and stuff
+        m_player.updateCameraAndItems();
+        m_player.updateVelocity(static_cast<float>(delta_time));
+        m_player.applyVelocity(static_cast<float>(delta_time));
+        m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
+        m_camera.update(m_player.getPosition(), m_player.getYaw(), m_player.getPitch());
 
         m_block_shader.use();
+        const glm::mat4 VP_matrix = m_camera.getViewProjectionMatrix();
+        glUniformMatrix4fv(m_block_VP_matrix_location, 1, GL_FALSE, glm::value_ptr(VP_matrix));
         // TODO: call m_world.draw(center, frustum)
         m_world.draw();
 
         m_window.swapResizeClearBuffer();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     m_window.unlockMouse();

@@ -2,6 +2,7 @@
 #include "QuadEBO.hpp"
 #include <queue>
 #include <cassert>
+#include <cmath>
 
 //==============================================================================
 World::World(const char * location) :
@@ -324,7 +325,15 @@ void World::generateChunk(const iVec3 from_block)
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
             for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
             {
-                getBlock(position) = Block{ std::rand() % 300 == 0 };
+                auto & block = getBlock(position);
+#if 0
+                block = Block{ std::rand() % 300 == 0 };
+#else
+                if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
+                    block = Block{ 1 };
+                else
+                    block = Block{ 0 };
+#endif
             }
 }
 

@@ -83,10 +83,11 @@ void Window::unlockMouse()
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
+#include <iostream>
 //==============================================================================
 double Window::aspectRatio() const
 {
-    return fb_width / fb_height;
+    return static_cast<double>(fb_width) / static_cast<double>(fb_height);
 }
 
 //==============================================================================

@@ -92,7 +92,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 100 },
+            RDISTANCE{ 120 },
             CSIZE{ 32 },
             MIN_CCSIZE{ 0 },
             MSIZE{ 16 },
