@@ -1,4 +1,5 @@
 #include "World.hpp"
+#include "QuadEBO.hpp"
 #include <queue>
 #include <cassert>
 
@@ -157,10 +158,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertAO(aos[2], aos[1], aos[7])
                     } * SHADDOW_STRENGTH;
 
-                    mesh.push_back({ position(0) + 1, position(1)    , position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1)    , position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1) + 1, position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1) + 1, position(2) + 1, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1)    , position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1)    , position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1) + 1, position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                 }
                 if (getBlock({ position(0) - 1, position(1), position(2) }).isEmpty())
                 {
@@ -183,10 +184,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
-                    mesh.push_back({ position(0)    , position(1)    , position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1)    , position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1) + 1, position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1) + 1, position(2)    , block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1)    , position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1)    , position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1) + 1, position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1) + 1, position(2)     }, block.get(), ao_result });
                 }
                 if (getBlock({ position(0), position(1) + 1, position(2) }).isEmpty())
                 {
@@ -209,10 +210,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertAO(aos[0], aos[3], aos[5])
                     } * SHADDOW_STRENGTH;
 
-                    mesh.push_back({ position(0) + 1, position(1) + 1, position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1) + 1, position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1) + 1, position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1) + 1, position(2) + 1, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1) + 1, position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1) + 1, position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1) + 1, position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                 }
                 if (getBlock({ position(0), position(1) - 1, position(2) }).isEmpty())
                 {
@@ -235,10 +236,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
-                    mesh.push_back({ position(0)    , position(1)    , position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1)    , position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1)    , position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1)    , position(2) + 1, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1)    , position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1)    , position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1)    , position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1)    , position(2) + 1 }, block.get(), ao_result });
                 }
                 if (getBlock({ position(0), position(1), position(2) + 1 }).isEmpty())
                 {
@@ -261,10 +262,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
-                    mesh.push_back({ position(0)    , position(1)    , position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1)    , position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1) + 1, position(2) + 1, block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1) + 1, position(2) + 1, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1)    , position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1)    , position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1) + 1, position(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                 }
                 if (getBlock({ position(0), position(1), position(2) - 1 }).isEmpty())
                 {
@@ -287,10 +288,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertAO(aos[0], aos[3], aos[5])
                     } * SHADDOW_STRENGTH;
 
-                    mesh.push_back({ position(0) + 1, position(1)    , position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1)    , position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0)    , position(1) + 1, position(2)    , block.get(), ao_result });
-                    mesh.push_back({ position(0) + 1, position(1) + 1, position(2)    , block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1)    , position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1)    , position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0)    , position(1) + 1, position(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { position(0) + 1, position(1) + 1, position(2)     }, block.get(), ao_result });
                 }
             }
 
@@ -363,7 +364,7 @@ void World::meshLoader()
             else
             {
                 if (m_loaded_meshes[i].size > 0)
-                    tasks.render.push_back({ mesh_index }); // TODO: make sure union Render is working correctly here
+                    tasks.render.push_back({ mesh_index, m_loaded_meshes[i].position });
                 m_mesh_loaded[mesh_index] = Status::LOADED;
                 ++i;
             }
@@ -395,7 +396,7 @@ void World::meshLoader()
                 const auto to_block = from_block + MESH_SIZE;
                 const auto mesh = generateMesh(from_block, to_block);
 
-                if (mesh.size() > 0) tasks.upload.push_back({ current_index, mesh });
+                if (mesh.size() > 0) tasks.upload.push_back({ current_index, current, mesh });
 
                 m_mesh_loaded[current_index] = Status::CHECKED;
                 m_loaded_meshes.push_back({ current, static_cast<int>(mesh.size()) });
@@ -455,19 +456,68 @@ void World::draw()
     {
       const Remove & task = tasks.remove.back();
 
-      // TODO: remove mesh from GPU
+      auto & mesh_data = m_meshes[task.index];
+      m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
+      mesh_data.VAO = 0;
+      mesh_data.VBO = 0;
+
+      // TODO: resize buffer to 0 to save memory
 
       tasks.remove.pop_back();
     }
 
-    // upload
-    if (!tasks.upload.empty())
+    // upload only after nothing left to remove
+    if (!tasks.upload.empty() && tasks.remove.empty())
     {
         const Upload & task = tasks.upload.back();
 
-        // TODO: upload mesh
+        GLuint VAO = 0, VBO = 0;
+        if (!m_unused_buffers.empty())
+        {
+            const auto & top = m_unused_buffers.top();
 
-        tasks.render.push_back({ task.index });
+            VAO = top.VAO;
+            VBO = top.VBO;
+
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+            m_unused_buffers.pop();
+        }
+        else
+        {
+          glGenVertexArrays(1, &VAO);
+          glGenBuffers(1, &VBO);
+
+          glBindVertexArray(VAO);
+          glBindBuffer(GL_ARRAY_BUFFER, VBO);
+          QuadEBO::bind();
+
+          glVertexAttribIPointer(0, 3, GL_INT, sizeof(Vertex), (GLvoid*)(0));
+          glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid*)(sizeof(Vertex::position)));
+          glVertexAttribIPointer(2, 4, GL_UNSIGNED_BYTE, sizeof(Vertex), (GLvoid*)(sizeof(Vertex::position) + sizeof(Vertex::type)));
+          glEnableVertexAttribArray(0);
+          glEnableVertexAttribArray(1);
+          glEnableVertexAttribArray(2);
+
+          glBindVertexArray(0);
+        }
+
+        assert(task.mesh.size() > 0 && "Mesh size must be over 0.");
+        assert(VAO != 0 && VBO != 0 && "Failed to gent VAO and VBO for mesh.");
+
+        // upload mesh
+        glBufferData(GL_ARRAY_BUFFER, task.mesh.size() * sizeof(task.mesh[0]), task.mesh.data(), GL_STATIC_DRAW);
+
+        assert(m_meshes[task.index].VAO == 0 && m_meshes[task.index].VBO == 0 && "Buffers not cleaned up.");
+        m_meshes[task.index].VAO = VAO;
+        m_meshes[task.index].VBO = VBO;
+
+        tasks.render.push_back({ task.index, task.position });
+
+        // fast multiply by 1.5
+        const int EBO_size = static_cast<int>(task.mesh.size() >> 2 + task.mesh.size());
+        m_meshes[task.index].size = EBO_size;
+        QuadEBO::resize(EBO_size);
 
         tasks.upload.pop_back();
     }
@@ -475,7 +525,18 @@ void World::draw()
     // render
     for (auto & m : tasks.render)
     {
-        // TODO: render chunks
+        if (inFrustum(/*m.position*/)) // TODO: frustum culling
+        {
+            const auto & mesh_data = m_meshes[m.index];
+
+            assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
+            assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and VBO not loaded.");
+
+            glBindVertexArray(mesh_data.VAO);
+            glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
+            glBindVertexArray(0);
+        }
+
     }
 
     // swap task buffers if loader ready
@@ -512,4 +573,11 @@ void World::exitLoaderThread()
     }
 
     m_loader_thread.join();
+}
+
+//==============================================================================
+bool World::inFrustum()
+{
+    // TODO: implement (needs AABB and frustum data passed in to compute)
+    return true;
 }

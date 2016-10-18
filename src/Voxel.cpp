@@ -35,6 +35,9 @@ void Voxel::run()
                 << static_cast<bool>(key_u)
                 << std::endl;
 
+        // TODO: glUseShader(block_shader.id());
+
+        // TODO: call m_world.draw(center, frustum)
 
         m_window.swapResizeClearBuffer();
 

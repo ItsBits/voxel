@@ -1,15 +1,6 @@
 #pragma once
 
 /*
- * TODO:
- * upload and render chunks
- */
-
-
-
-
-
-/* TODO:
  * 2 Threads:
  *     render
  *     loader
@@ -47,11 +38,6 @@
  *        do not request new task list !!!
  */
 
-/*
- * UPDATE:
- * loader should have a container that is reset in every buffer swap.
- * it should be used for flood fill mesh loading
- */
 
 #include "TinyAlgebra.hpp"
 #include "Block.hpp"
@@ -63,18 +49,20 @@
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
+#include <stack>
 
 
 // TODO: expand
-struct Vertex { int x, y, z, type; ucVec4 shaddow; };
+struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
 
 // TODO: try pointers instead of index (what is faster?)
-union Render { int index; struct { GLuint VAO; GLint size; }; }; // VAO for renderer to overwrite it to reduce memory indirections
+struct Render { int index; iVec3 position; };
 struct Remove { int index; };
 // TODO: replace vertex vector by custom memory allocation (1 idea: have a large buffer for all meshes. once buffer full, hand over to render thread)
-struct Upload { int index; std::vector<Vertex> mesh; };
+struct Upload { int index; iVec3 position; std::vector<Vertex> mesh; };
 
-struct Mesh { GLuint m_VAO; GLuint m_VBO; GLsizei size; };
+struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
+struct UnusedBuffer { GLuint VAO; GLuint VBO; };
 struct MeshMeta { iVec3 position; int size; };
 
 struct ChunkMeta { int size; int offset; };
@@ -150,6 +138,7 @@ private:
 
     // renderer thread data
     Mesh m_meshes[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z]; // kind of mirrors m_mesh_positions
+    std::stack<UnusedBuffer> m_unused_buffers;
 
     // shared / synchronization data
     Tasks m_tasks[2]; // double buffering
@@ -173,5 +162,5 @@ private:
     void meshLoader();
     bool inRenderRange(const iVec3 center_block, const iVec3 position_block);
     void exitLoaderThread();
-
+    static bool inFrustum();
 };
