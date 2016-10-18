@@ -8,14 +8,20 @@
 //==============================================================================
 Voxel::Voxel(const char * location) :
     m_window{ Window::Hints{ 3, 1, 0, nullptr, location, 0.9f, 0.9f, 0.6f, 1.0f, false, 960, 540 } },
-    m_world{ location }
+    m_world{ location },
+    m_block_shader{
+            {
+                    { "shader/block.vert", GL_VERTEX_SHADER },
+                    { "shader/block.frag", GL_FRAGMENT_SHADER }
+            }
+    }
 {}
 
 //==============================================================================
 void Voxel::run()
 {
     m_window.makeContextCurrent();
-    m_window.lockMouse();
+    // m_window.lockMouse();
 
     while (!m_window.exitRequested())
     {
@@ -35,9 +41,9 @@ void Voxel::run()
                 << static_cast<bool>(key_u)
                 << std::endl;
 
-        // TODO: glUseShader(block_shader.id());
-
+        m_block_shader.use();
         // TODO: call m_world.draw(center, frustum)
+        m_world.draw();
 
         m_window.swapResizeClearBuffer();
 

@@ -515,7 +515,7 @@ void World::draw()
         tasks.render.push_back({ task.index, task.position });
 
         // fast multiply by 1.5
-        const int EBO_size = static_cast<int>(task.mesh.size() >> 2 + task.mesh.size());
+        const int EBO_size = (static_cast<int>(task.mesh.size() >> 2) + task.mesh.size());
         m_meshes[task.index].size = EBO_size;
         QuadEBO::resize(EBO_size);
 
@@ -525,7 +525,7 @@ void World::draw()
     // render
     for (auto & m : tasks.render)
     {
-        if (inFrustum(/*m.position*/)) // TODO: frustum culling
+        if (inFrustum(/*m_position*/)) // TODO: frustum culling
         {
             const auto & mesh_data = m_meshes[m.index];
 

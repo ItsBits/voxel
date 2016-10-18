@@ -2,6 +2,7 @@
 
 #include "Window.hpp"
 #include "World.hpp"
+#include "Shader.hpp"
 
 //==============================================================================
 class Voxel
@@ -14,5 +15,5 @@ public:
 private:
     Window m_window;
     World m_world;
-
+    Shader m_block_shader;
 };
