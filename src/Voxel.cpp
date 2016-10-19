@@ -1,9 +1,19 @@
 #include "Voxel.hpp"
 #include <GLFW/glfw3.h>
-#include "Mouse.hpp"
-#include "Keyboard.hpp"
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
+
+//==============================================================================
+static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
+{
+        { "assets/blocks/grass.png", 1 },
+        { "assets/blocks/sand.png", 2 },
+};
+static const Texture::Filtering BLOCK_TEXTURE_FILTERING
+{
+        Texture::FarFiltering::LINEAR_TEXEL_LINEAR_MIPMAP,
+        Texture::CloseFiltering::LINEAR_TEXEL, 500.0f
+};
 
 //==============================================================================
 Voxel::Voxel(const char * location) :
@@ -14,10 +24,13 @@ Voxel::Voxel(const char * location) :
                     { "shader/block.vert", GL_VERTEX_SHADER },
                     { "shader/block.frag", GL_FRAGMENT_SHADER }
             }
-    }
+    },
+    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, BLOCK_TEXTURE_FILTERING } // TODO: make dynamic texture unit allocation
 {
-  m_block_shader.use();
-  m_block_VP_matrix_location = glGetUniformLocation(m_block_shader.id(), "VP_matrix");
+    m_block_shader.use();
+    m_block_VP_matrix_location = glGetUniformLocation(m_block_shader.id(), "VP_matrix");
+    block_texture_array_location = glGetUniformLocation(m_block_shader.id(), "block_texture_array");
+    glUniform1i(block_texture_array_location, GL_TEXTURE0);
 }
 
 //==============================================================================
@@ -46,6 +59,7 @@ void Voxel::run()
         m_block_shader.use();
         const glm::mat4 VP_matrix = m_camera.getViewProjectionMatrix();
         glUniformMatrix4fv(m_block_VP_matrix_location, 1, GL_FALSE, glm::value_ptr(VP_matrix));
+        m_block_textures.bind(GL_TEXTURE0);
         // TODO: call m_world.draw(center, frustum)
         m_world.draw();
 

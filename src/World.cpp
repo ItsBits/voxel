@@ -330,7 +330,7 @@ void World::generateChunk(const iVec3 from_block)
                 block = Block{ std::rand() % 300 == 0 };
 #else
                 if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
-                    block = Block{ 1 };
+                    std::rand() % 2 ? block = Block{ 1 } : block = Block{ 2 };
                 else
                     block = Block{ 0 };
 #endif

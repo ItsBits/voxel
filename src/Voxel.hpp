@@ -5,6 +5,7 @@
 #include "Shader.hpp"
 #include "Camera.hpp"
 #include "Player.hpp"
+#include "TextureArray.hpp"
 
 //==============================================================================
 class Voxel
@@ -21,5 +22,7 @@ private:
     Camera<float> m_camera;
     GLint m_block_VP_matrix_location;
     Player m_player;
+    TextureArray m_block_textures;
+    GLint block_texture_array_location;
 
 };

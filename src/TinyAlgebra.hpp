@@ -38,10 +38,10 @@ public:
 #define d(o) \
 template<typename T, int S> Vec<T, S> operator o (const Vec<T, S> & a, const Vec<T, S> & b) { Vec<T, S> r; for (int i = 0; i < S; ++i) r(i) = a(i) o b(i); return r; } \
 template<typename T, int S> Vec<T, S> operator o (const Vec<T, S> & a, const T & c) { Vec<T, S> r; for (int i = 0; i < S; ++i) r(i) = a(i) o c; return r; } \
-template<typename T, int S> Vec<T, S> operator o (const T & c, const Vec<T, S> & a) { return operator o (a, c); } \
+template<typename T, int S> Vec<T, S> operator o (const T & c, const Vec<T, S> & a) { Vec<T, S> r; for (int i = 0; i < S; ++i) r(i) = c o a(i); return r; } \
 template<typename T, int W, int H> Mat<T, W, H> operator o (const Mat<T, W, H> & a, const Mat<T, W, H> & b) { Mat<T, W, H> r; for (int i = 0; i < W * H; ++i) r(i) = a(i) o b(i); return r; } \
 template<typename T, int W, int H> Mat<T, W, H> operator o (const Mat<T, W, H> & a, const T & c) { Mat<T, W, H> r; for (int i = 0; i < W * H; ++i) r(i) = a(i) o c; return r; } \
-template<typename T, int W, int H> Mat<T, W, H> operator o (const T & c, const Mat<T, W, H> & a) { return operator o (a, c); }
+template<typename T, int W, int H> Mat<T, W, H> operator o (const T & c, const Mat<T, W, H> & a) { Mat<T, W, H> r; for (int i = 0; i < W * H; ++i) r(i) = c o a(i); return r; }
 d(+) d(-) d(*) d(/ ) d(%) d(<< ) d(>> ) d(| ) d(&) d(^) d(&&) d(|| )
 #undef d
 
