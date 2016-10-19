@@ -37,7 +37,7 @@ Voxel::Voxel(const char * location) :
 void Voxel::run()
 {
     m_window.makeContextCurrent();
-    m_window.lockMouse();
+    //m_window.lockMouse();
 
     double last_time = glfwGetTime();
 

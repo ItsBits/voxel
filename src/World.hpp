@@ -148,7 +148,7 @@ private:
     std::mutex m_lock;
     std::condition_variable m_cond_var;
     bool m_swap;
-    bool m_loader_waiting;
+    std::atomic_bool m_loader_waiting;
 
     //==============================================================================
     // functions

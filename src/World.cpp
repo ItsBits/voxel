@@ -431,7 +431,7 @@ void World::meshLoader()
 
         {
             // request task buffer swap wait for it
-            std::unique_lock<std::mutex> lock{m_lock};
+            std::unique_lock<std::mutex> lock{ m_lock };
             m_loader_waiting = true;
             m_cond_var.wait(lock, [this] { return m_swap || m_quit; });
             m_swap = false;
@@ -572,12 +572,12 @@ void World::exitLoaderThread()
     m_quit = true;
     while (true)
     {
-        std::unique_lock<std::mutex> lock{ m_lock };
         if (m_loader_waiting)
         {
             m_cond_var.notify_all();
             break;
         }
+
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
