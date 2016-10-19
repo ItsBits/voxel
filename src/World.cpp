@@ -388,7 +388,7 @@ void World::meshLoader()
         check_list.push(center_mesh);
 
         // breadth first search finds all borders of loaded are and loads it
-        while (!check_list.empty())
+        while (!check_list.empty() && tasks.upload.size() < 8)
         {
             const auto current = check_list.front();
             check_list.pop();
@@ -414,8 +414,8 @@ void World::meshLoader()
             else if (m_mesh_loaded[current_index] == Status::LOADED)
             {
                 const iVec3 neighbours[6]{
-                        center + iVec3{ 1, 0, 0 }, center + iVec3{ 0, 1, 0 }, center + iVec3{ 0, 0, 1 },
-                        center - iVec3{ 1, 0, 0 }, center - iVec3{ 0, 1, 0 }, center - iVec3{ 0, 0, 1 },
+                        current + iVec3{ 1, 0, 0 }, current + iVec3{ 0, 1, 0 }, current + iVec3{ 0, 0, 1 },
+                        current - iVec3{ 1, 0, 0 }, current - iVec3{ 0, 1, 0 }, current - iVec3{ 0, 0, 1 },
                 };
 
                 for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
@@ -524,7 +524,7 @@ void World::draw()
         tasks.render.push_back({ task.index, task.position });
 
         // fast multiply by 1.5
-        const int EBO_size = (static_cast<int>(task.mesh.size() >> 2) + task.mesh.size());
+        const int EBO_size = static_cast<int>((task.mesh.size() >> 2) + task.mesh.size());
         m_meshes[task.index].size = EBO_size;
         QuadEBO::resize(EBO_size);
 
