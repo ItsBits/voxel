@@ -92,13 +92,13 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 120 },
-            CSIZE{ 32 },
+            RDISTANCE{ 60 },
+            CSIZE{ 16 },
             MIN_CCSIZE{ 0 },
             MSIZE{ 16 },
             MCSIZE{ 16 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
-            MOFF{ MESH_BORDER_REQUIRED_SIZE },
+            MOFF{ 0/*MESH_BORDER_REQUIRED_SIZE*/ },
             RSIZE{ 512 / CSIZE },
             RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3}; // round up + 2 instead of + 3 would be prettier
 
@@ -122,6 +122,7 @@ private:
     std::thread m_loader_thread;
     std::string m_data_location;
     Block m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
+    iVec3 m_blocks_positions_DEBUG[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_mesh_positions[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
     // TODO: more space efficient format than current (3 states only needed)
@@ -153,7 +154,9 @@ private:
     //==============================================================================
     // functions
 
-    Block & getBlock(const iVec3 block_position);
+    Block & getBlockNoCheck(const iVec3 block_position);
+    Block & getBlockCheckPosition(const iVec3 block_position);
+    Block & getBlockSetPosition(const iVec3 block_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
     void loadChunk(const iVec3 chunk_position);
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
