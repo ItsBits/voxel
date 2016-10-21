@@ -105,6 +105,7 @@ Block & World::getBlockSetPosition(const iVec3 block_position)
 /// end of copy paste
     const int index = chunk_index * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z + block_index;
 
+    //std::cout << "Replace x by y: " << toString(m_blocks_positions_DEBUG[index]) << toString(block_position) << std::endl;
     m_blocks_positions_DEBUG[index] = block_position;
 
     return m_blocks[index];
@@ -171,6 +172,7 @@ void World::loadChunk(const iVec3 chunk_position)
     else
     {
         // TODO: load chunk from region
+        assert(0);
     }
 }
 

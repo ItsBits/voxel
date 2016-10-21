@@ -94,18 +94,20 @@ private:
     static constexpr int
             RDISTANCE{ 60 },
             CSIZE{ 16 },
-            MIN_CCSIZE{ 0 },
             MSIZE{ 16 },
             MCSIZE{ 16 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
             MOFF{ 0/*MESH_BORDER_REQUIRED_SIZE*/ },
             RSIZE{ 512 / CSIZE },
+            MIN_CCSIZE{ 6 },
             RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3}; // round up + 2 instead of + 3 would be prettier
 
     static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
     static_assert((RDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the render distance.");
 
-    static constexpr int CCSIZE{ maxC(((MESH_BORDER_REQUIRED_SIZE + MSIZE) + (CSIZE - 1)) / CSIZE, MIN_CCSIZE) }; // round up and pick max so meshes can actually load
+    // TODO: fix this equation the result is too small
+    //static constexpr int CCSIZE{ maxC(((MESH_BORDER_REQUIRED_SIZE * 2 + MSIZE) + (CSIZE - 1)) / CSIZE, MIN_CCSIZE) }; // round up and pick max so meshes can actually load
+    static constexpr int CCSIZE{ MIN_CCSIZE };
     static constexpr int CHUNK_SIZE_X{ CSIZE }, CHUNK_SIZE_Y{ CSIZE }, CHUNK_SIZE_Z{ CSIZE };
     static constexpr int CHUNK_CONTAINER_SIZE_X{ CCSIZE }, CHUNK_CONTAINER_SIZE_Y{ CCSIZE }, CHUNK_CONTAINER_SIZE_Z{ CCSIZE };
     static constexpr int MESH_SIZE_X{ MSIZE }, MESH_SIZE_Y{ MSIZE }, MESH_SIZE_Z{ MSIZE };
