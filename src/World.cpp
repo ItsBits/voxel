@@ -468,7 +468,7 @@ void World::meshLoader()
                 if (mesh.size() > 0) tasks.upload.push_back({ current_index, current, mesh });
 
                 m_mesh_loaded[current_index] = Status::CHECKED;
-                m_loaded_meshes.push_back({ current, static_cast<int>(mesh.size()) });
+                m_loaded_meshes.push_back({ current, static_cast<int>(mesh.size()) }); // TODO: size doesn't really matter. Only size!=0? matters => bool
             }
             // push neighbours that are in render radius
             else if (m_mesh_loaded[current_index] == Status::LOADED)
@@ -584,7 +584,7 @@ void World::draw()
         tasks.render.push_back({ task.index, task.position });
 
         // fast multiply by 1.5
-        const int EBO_size = static_cast<int>((task.mesh.size() >> 2) + task.mesh.size());
+        const int EBO_size = static_cast<int>((task.mesh.size() >> 1) + task.mesh.size());
         m_meshes[task.index].size = EBO_size;
         QuadEBO::resize(EBO_size);
 
