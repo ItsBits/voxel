@@ -201,11 +201,17 @@ void World::loadChunk(const iVec3 chunk_position)
         uLong destination_length = compressBound(SOURCE_LENGTH);
         std::unique_ptr<Bytef[]> data{ std::make_unique<Bytef[]>(destination_length) };
         const auto * beginning_of_chunk = &getBlockCheckPosition(previous_chunk_position * CHUNK_SIZE); // address of first block
+        for (const auto * i = beginning_of_chunk; i != beginning_of_chunk + SOURCE_LENGTH; ++i)
+        {
+            //std::cout << (int)i->get() << std::endl;
+        }
+
         auto result = compress(reinterpret_cast<Bytef *>(data.get()), &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), SOURCE_LENGTH); // TODO: checkout compress2 function
         assert(result == Z_OK && "Error compressing chunk.");
 
         m_regions[region_index].metas[chunk_in_region_index].size = static_cast<int>(destination_length);
         m_regions[region_index].metas[chunk_in_region_index].offset = m_regions[region_index].size;
+
         // resize if out of space
         // TODO: check if this is off-by-one error with size
         while (m_regions[region_index].size + static_cast<int>(destination_length) > m_regions[region_index].container_size)
@@ -213,6 +219,7 @@ void World::loadChunk(const iVec3 chunk_position)
             m_regions[region_index].container_size += REGION_DATA_SIZE_FACTOR;
             m_regions[region_index].data = (Bytef*)std::realloc(m_regions[region_index].data, static_cast<std::size_t>(m_regions[region_index].container_size));
         }
+
         // save data to region
         std::memcpy(m_regions[region_index].data + m_regions[region_index].size, data.get(), destination_length);
         m_regions[region_index].size += static_cast<int>(destination_length);
@@ -249,7 +256,7 @@ void World::loadChunk(const iVec3 chunk_position)
         assert(result == Z_OK && destination_length == SOURCE_LENGTH && "Error in decompression.");
 
         // TODO: remove this indirection
-#if 0 // why is this not working correctly?
+#if 1 // why is this not working correctly?
         iVec3 it;
         iVec3 from = chunk_position * CHUNK_SIZE;
         iVec3 to = from + CHUNK_SIZE;
@@ -257,7 +264,10 @@ void World::loadChunk(const iVec3 chunk_position)
             for (it(1) = from(1); it(1) < to(1); ++it(1))
                 for (it(0) = from(0); it(0) < to(0); ++it(0))
                 {
-                  getBlockSetPosition(it) = data[it(2) * CHUNK_SIZE_X * CHUNK_SIZE_Y + it(1) * CHUNK_SIZE_X + it(0)];
+                    const auto it_r = floorMod(it, CHUNK_SIZE);
+                    const auto b = data[it_r(2) * CHUNK_SIZE_X * CHUNK_SIZE_Y + it_r(1) * CHUNK_SIZE_X + it_r(0)];
+                    //std::cout << (int)b.get() << std::endl;
+                    getBlockSetPosition(it) = b;
                 }
 #else
       std::memcpy(beginning_of_chunk, data.get(), SOURCE_LENGTH);
