@@ -5,6 +5,8 @@
 #include <cmath>
 #include "TinyAlgebraStringCast.hpp"
 #include <iostream>
+#include <memory>
+#include <cstring>
 
 //==============================================================================
 World::World(const char * location) :
@@ -31,8 +33,11 @@ World::World(const char * location) :
         for (auto & i2 : i.metas) i2 = { 0, 0 };
         i.data = nullptr;
         i.size = 0;
+        i.container_size = 0;
     }
     m_regions[0].position = { 1, 0, 0 };
+
+    for (auto & i : m_needs_save) i = false;
 
     m_loader_thread = std::thread{ &World::meshLoader, this };
 }
@@ -45,7 +50,7 @@ World::~World()
     // TODO: save changes
 
     // cleanup
-    for (auto & i : m_regions) delete [] i.data;
+    for (auto & i : m_regions) std::free(i.data);
 }
 
 //==============================================================================
@@ -106,6 +111,7 @@ Block & World::getBlockSetPosition(const iVec3 block_position)
     const int index = chunk_index * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z + block_index;
 
     //std::cout << "Replace x by y: " << toString(m_blocks_positions_DEBUG[index]) << toString(block_position) << std::endl;
+    // TODO: REMOVE it's a performance eater
     m_blocks_positions_DEBUG[index] = block_position;
 
     return m_blocks[index];
@@ -135,10 +141,32 @@ void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
+void World::loadRegion(const iVec3 region_position)
+{
+    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
+    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
+    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
+
+    // load region file
+    if (any(m_regions[region_index].position != region_position))
+    {
+        // TODO: if exists load from drive and save old if valid to drive instead
+
+        // create region file
+        auto & region = m_regions[region_index];
+        region.position = region_position;
+        std::free(region.data);
+        region.data = (Bytef*)std::malloc(REGION_DATA_SIZE_FACTOR);
+        region.size = 0;
+        region.container_size = REGION_DATA_SIZE_FACTOR;
+        for (auto & i : region.metas) i = { 0, 0 };
+    }
+}
+
+//==============================================================================
 void World::loadChunk(const iVec3 chunk_position)
 {
     constexpr iVec3 CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
-    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
     constexpr iVec3 REGION_SIZE{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
     constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
 
@@ -150,29 +178,94 @@ void World::loadChunk(const iVec3 chunk_position)
     if (all(m_chunk_positions[chunk_index] == chunk_position)) return;
 
     const auto region_position = floorDiv(chunk_position, REGION_SIZE);
-    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
-
-    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
     const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZE);
     const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZE);
 
-    // load region file
-    if (any(m_regions[region_index].position != region_position))
+    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
+    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
+    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
+
+    constexpr uLong SOURCE_LENGTH = sizeof(Block) * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
+
+    // save previous chunk
+    if (m_needs_save[chunk_index])
     {
-        // TODO: load / create region file
+         // load correct region file
+        const auto previous_chunk_position = m_chunk_positions[chunk_index];
+        const auto previous_region_position = floorDiv(previous_chunk_position, REGION_SIZE);
+        loadRegion(previous_region_position);
+
+        // TODO: remove indirection: zlib -> unique_ptr -> region. Replace with: zlib -> region
+
+        // compress chunk
+        uLong destination_length = compressBound(SOURCE_LENGTH);
+        std::unique_ptr<Bytef[]> data{ std::make_unique<Bytef[]>(destination_length) };
+        const auto * beginning_of_chunk = &getBlockCheckPosition(previous_chunk_position * CHUNK_SIZE); // address of first block
+        auto result = compress(reinterpret_cast<Bytef *>(data.get()), &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), SOURCE_LENGTH); // TODO: checkout compress2 function
+        assert(result == Z_OK && "Error compressing chunk.");
+
+        m_regions[region_index].metas[chunk_in_region_index].size = static_cast<int>(destination_length);
+        m_regions[region_index].metas[chunk_in_region_index].offset = m_regions[region_index].size;
+        // resize if out of space
+        // TODO: check if this is off-by-one error with size
+        while (m_regions[region_index].size + static_cast<int>(destination_length) > m_regions[region_index].container_size)
+        {
+            m_regions[region_index].container_size += REGION_DATA_SIZE_FACTOR;
+            m_regions[region_index].data = (Bytef*)std::realloc(m_regions[region_index].data, static_cast<std::size_t>(m_regions[region_index].container_size));
+        }
+        // save data to region
+        std::memcpy(m_regions[region_index].data + m_regions[region_index].size, data.get(), destination_length);
+        m_regions[region_index].size += static_cast<int>(destination_length);
     }
+
+    // load region of new chunk
+    loadRegion(region_position);
 
     // generate new chunk
     if (m_regions[region_index].metas[chunk_in_region_index].size == 0)
     {
         generateChunk(chunk_position * CHUNK_SIZE);
         m_chunk_positions[chunk_index] = chunk_position;
+        m_needs_save[chunk_index] = true;
     }
     // load chunk from region
     else
     {
-        // TODO: load chunk from region
-        assert(0);
+        // TODO: remove indirection: zlib -> unique_ptr -> chunk. Replace with: zlib -> chunk
+
+        std::unique_ptr<Block[]> data{ std::make_unique<Block[]>(SOURCE_LENGTH) };
+
+        // load chunk from region
+        auto * beginning_of_chunk = &getBlockNoCheck(chunk_position * CHUNK_SIZE); // address of first block
+        uLongf destination_length = SOURCE_LENGTH;
+        const auto off = m_regions[region_index].metas[chunk_in_region_index].offset;
+        const auto siz = m_regions[region_index].metas[chunk_in_region_index].size;
+
+        const auto * source = m_regions[region_index].data + off;
+        auto result = uncompress(
+                reinterpret_cast<Bytef *>(data.get()), &destination_length,
+                source, static_cast<uLongf>(siz)
+        );
+        assert(result == Z_OK && destination_length == SOURCE_LENGTH && "Error in decompression.");
+
+        // TODO: remove this indirection
+#if 0 // why is this not working correctly?
+        iVec3 it;
+        iVec3 from = chunk_position * CHUNK_SIZE;
+        iVec3 to = from + CHUNK_SIZE;
+        for (it(2) = from(2); it(2) < to(2); ++it(2))
+            for (it(1) = from(1); it(1) < to(1); ++it(1))
+                for (it(0) = from(0); it(0) < to(0); ++it(0))
+                {
+                  getBlockSetPosition(it) = data[it(2) * CHUNK_SIZE_X * CHUNK_SIZE_Y + it(1) * CHUNK_SIZE_X + it(0)];
+                }
+#else
+      std::memcpy(beginning_of_chunk, data.get(), SOURCE_LENGTH);
+#endif
+
+
+        m_chunk_positions[chunk_index] = chunk_position;
+        m_needs_save[chunk_index] = false;
     }
 }
 
@@ -461,8 +554,8 @@ void World::meshLoader()
             {
                 const auto from_block = current * MESH_SIZE + MESH_OFFSET;
                 const auto to_block = from_block + MESH_SIZE;
-                //std::cout << "Generate Mesh: " << toString(from_block) << toString(to_block) << std::endl;
-                std::cout << "Generate Mesh: " << toString(floorDiv(from_block + 1, MESH_SIZE)) << std::endl;
+                std::cout << "Generate Mesh: " << toString(from_block) << toString(to_block) << std::endl;
+                //std::cout << "Generate Mesh: " << toString(floorDiv(from_block + 1, MESH_SIZE)) << std::endl;
                 const auto mesh = generateMesh(from_block, to_block);
 
                 if (mesh.size() > 0) tasks.upload.push_back({ current_index, current, mesh });

@@ -117,6 +117,9 @@ private:
     static constexpr int REGION_CONTAINER_SIZE_X{ RCSIZE }, REGION_CONTAINER_SIZE_Y{ RCSIZE }, REGION_CONTAINER_SIZE_Z{ RCSIZE };
     static constexpr int RENDER_DISTANCE_X{ RDISTANCE }, RENDER_DISTANCE_Y{ RDISTANCE }, RENDER_DISTANCE_Z{ RDISTANCE };
 
+    static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
+    static constexpr int REGION_DATA_SIZE_FACTOR{ 4 * 1024 * 1024 };
+
     //==============================================================================
     // variables
 
@@ -126,6 +129,7 @@ private:
     Block m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_blocks_positions_DEBUG[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
+    bool m_needs_save[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_mesh_positions[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
     // TODO: more space efficient format than current (3 states only needed)
     Status m_mesh_loaded[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
@@ -136,7 +140,7 @@ private:
         iVec3 position;
         ChunkMeta metas[REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z];
         Bytef * data; // TODO: replace pointer with RAII mechanism
-        int size;
+        int size, container_size;
     } m_regions[REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z];
 
     // renderer thread data
@@ -168,4 +172,5 @@ private:
     bool inRenderRange(const iVec3 center_block, const iVec3 position_block);
     void exitLoaderThread();
     static bool inFrustum();
+    void loadRegion(const iVec3 region_position);
 };
