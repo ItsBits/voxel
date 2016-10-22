@@ -84,7 +84,7 @@ public:
     World(const char * location);
     ~World();
     // TODO: pass center and frustum to the function
-    void draw();
+    void draw(const iVec3 new_center);
 
 private:
     //==============================================================================
@@ -97,7 +97,8 @@ private:
             MSIZE{ 16 },
             MCSIZE{ 16 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
-            MOFF{ 0/*MESH_BORDER_REQUIRED_SIZE*/ },
+            MOFF{ MESH_BORDER_REQUIRED_SIZE }, // or maybe do chunk_size / 2
+            //MOFF{ 0 },
             RSIZE{ 512 / CSIZE },
             MIN_CCSIZE{ 6 },
             RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3}; // round up + 2 instead of + 3 would be prettier

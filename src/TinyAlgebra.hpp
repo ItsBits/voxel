@@ -227,4 +227,13 @@ w(uc, unsigned char) w(us, unsigned short) w(ui, unsigned int)
 #undef v
 #undef w
 
+//==============================================================================
+template<typename T, int S>
+Vec<int, S> intFloor(const Vec<T, S> x)
+{
+    Vec<int, S> r;
 
+    for (int i = 0; i < S; ++i) r(i) = static_cast<int>(x(i)) - (x(i) < T{ 0 });
+
+    return r;
+}

@@ -66,7 +66,8 @@ void Voxel::run()
         glUniformMatrix4fv(m_block_VP_matrix_location, 1, GL_FALSE, glm::value_ptr(VP_matrix));
         m_block_textures.bind(GL_TEXTURE0);
         // TODO: call m_world.draw(center, frustum)
-        m_world.draw();
+        const auto center = m_player.getPosition();
+        m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }));
 
         m_window.swapResizeClearBuffer();
 

@@ -51,6 +51,8 @@ World::~World()
 
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
+
+    // TODO: delete vertex / vao buffers
 }
 
 //==============================================================================
@@ -664,10 +666,11 @@ bool World::inRenderRange(const iVec3 center_block, const iVec3 position_block)
 }
 
 //==============================================================================
-void World::draw()
+void World::draw(const iVec3 new_center)
 {
     Tasks & tasks = m_tasks[(m_back_buffer + 1) % 2];
-    const iVec3 center = m_center[(m_back_buffer + 1) % 2];
+    /*const iVec3 center = */
+    m_center[(m_back_buffer + 1) % 2] = new_center;
 
     // remove
     if (!tasks.remove.empty())
@@ -675,7 +678,13 @@ void World::draw()
       const Remove & task = tasks.remove.back();
 
       auto & mesh_data = m_meshes[task.index];
-      m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
+      // TODO: figure out why possibly invalid indexes are given by loader and reimplement the commented out line instead of buffer delete
+#if 0
+        m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
+#else
+      glDeleteBuffers(1, &mesh_data.VBO);
+      glDeleteVertexArrays(1, &mesh_data.VAO);
+#endif
       mesh_data.VAO = 0;
       mesh_data.VBO = 0;
 
