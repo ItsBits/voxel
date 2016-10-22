@@ -168,6 +168,8 @@ private:
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
     static unsigned char vertAO(const bool side_a, const bool side_b, const bool corner);
     void generateChunk(const iVec3 from_block);
+    void sineChunk(const iVec3 from_block);
+    void debugChunk(const iVec3 from_block);
     void meshLoader();
     bool inRenderRange(const iVec3 center_block, const iVec3 position_block);
     void exitLoaderThread();

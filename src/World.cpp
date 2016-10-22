@@ -472,28 +472,61 @@ unsigned char World::vertAO(const bool side_a, const bool side_b, const bool cor
 //==============================================================================
 void World::generateChunk(const iVec3 from_block)
 {
-    // TODO: pre calculate chunk offset to improve performance (getBlock() recalculates chunk offset every time it is called)
+    // sineChunk(from_block);
+    debugChunk(from_block);
+}
 
+//==============================================================================
+void World::debugChunk(const iVec3 from_block)
+{
     constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-
     const iVec3 to_block = from_block + CHUNK_SIZE;
 
     iVec3 position;
+
+    const auto pos_maybe = floorDiv(from_block, CHUNK_SIZE);
 
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
             for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
             {
-                auto & block = getBlockSetPosition(position);
-#if 0
-                block = Block{ std::rand() % 300 == 0 };
-#else
-                if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
-                    std::rand() % 2 ? block = Block{ 1 } : block = Block{ 2 };
-                else
-                    block = Block{ 0 };
-#endif
+                Block b = 0;
+
+                const auto p = position(0) - from_block(0);
+
+                if (p < pos_maybe(0)) b = 1;
+                if (position(1) != 0 || position(2) != from_block(2)) b = 0;
+                if (pos_maybe(0) < 0) b = 0;
+
+                getBlockSetPosition(position) = b;
             }
+}
+
+//==============================================================================
+void World::sineChunk(const iVec3 from_block)
+{
+  // TODO: pre calculate chunk offset to improve performance (getBlock() recalculates chunk offset every time it is called)
+
+  constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
+
+  const iVec3 to_block = from_block + CHUNK_SIZE;
+
+  iVec3 position;
+
+  for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
+    for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
+      for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+      {
+        auto & block = getBlockSetPosition(position);
+#if 0
+        block = Block{ std::rand() % 300 == 0 };
+#else
+        if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
+          std::rand() % 2 ? block = Block{ 1 } : block = Block{ 2 };
+        else
+          block = Block{ 0 };
+#endif
+      }
 }
 
 //==============================================================================
@@ -549,7 +582,7 @@ void World::meshLoader()
         check_list.push(center_mesh);
 
         // breadth first search finds all borders of loaded are and loads it
-        while (!check_list.empty() && tasks.upload.size() < 8)
+        while (!check_list.empty() && tasks.upload.size() < 8) // TODO: or player moved far enough
         {
             const auto current = check_list.front();
             check_list.pop();
