@@ -128,16 +128,27 @@ void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
     iVec3 it;
 
   //std::cout << "Load Block range: " << toString(from_block) << toString(to_block) << std::endl;
-  std::cout << "Load Block range: " << toString(floorDiv(from_block, CHUNK_SIZE)) << std::endl;
+  //std::cout << "Load Block range: " << toString(floorDiv(from_block, CHUNK_SIZE)) << std::endl;
 
     for (it(2) = chunk_position_from(2); it(2) <= chunk_position_to(2); ++it(2))
         for (it(1) = chunk_position_from(1); it(1) <= chunk_position_to(1); ++it(1))
             for (it(0) = chunk_position_from(0); it(0) <= chunk_position_to(0); ++it(0))
             {
                 //std::cout << "Load Chunk: " << toString(it * CHUNK_SIZE) << toString(it * CHUNK_SIZE + CHUNK_SIZE) << std::endl;
-                std::cout << "Load Chunk: " << toString(it) << std::endl;
+                //std::cout << "Load Chunk: " << toString(it) << std::endl;
                 loadChunk(it);
             }
+
+    /*for (it(2) = chunk_position_from(2); it(2) <= chunk_position_to(2); ++it(2))
+        for (it(1) = chunk_position_from(1); it(1) <= chunk_position_to(1); ++it(1))
+            for (it(0) = chunk_position_from(0); it(0) <= chunk_position_to(0); ++it(0))
+            {
+              constexpr iVec3 CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
+              const auto chunk_relative = floorMod(it, CHUNK_CONTAINER_SIZE);
+              const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZE);
+              // if already loaded
+              if (any(m_chunk_positions[chunk_index] != it)) throw 1;
+            }*/
 }
 
 //==============================================================================
@@ -195,6 +206,9 @@ void World::loadChunk(const iVec3 chunk_position)
         const auto previous_region_position = floorDiv(previous_chunk_position, REGION_SIZE);
         loadRegion(previous_region_position);
 
+        const auto previous_region_relative = floorMod(previous_region_position, REGION_CONTAINER_SIZE);
+        const auto previous_region_index = toIndex(previous_region_relative, REGION_CONTAINER_SIZE);
+
         // TODO: remove indirection: zlib -> unique_ptr -> region. Replace with: zlib -> region
 
         // compress chunk
@@ -209,20 +223,20 @@ void World::loadChunk(const iVec3 chunk_position)
         auto result = compress(reinterpret_cast<Bytef *>(data.get()), &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), SOURCE_LENGTH); // TODO: checkout compress2 function
         assert(result == Z_OK && "Error compressing chunk.");
 
-        m_regions[region_index].metas[chunk_in_region_index].size = static_cast<int>(destination_length);
-        m_regions[region_index].metas[chunk_in_region_index].offset = m_regions[region_index].size;
+        m_regions[previous_region_index].metas[chunk_in_region_index].size = static_cast<int>(destination_length);
+        m_regions[previous_region_index].metas[chunk_in_region_index].offset = m_regions[previous_region_index].size;
 
         // resize if out of space
         // TODO: check if this is off-by-one error with size
-        while (m_regions[region_index].size + static_cast<int>(destination_length) > m_regions[region_index].container_size)
+        while (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
         {
-            m_regions[region_index].container_size += REGION_DATA_SIZE_FACTOR;
-            m_regions[region_index].data = (Bytef*)std::realloc(m_regions[region_index].data, static_cast<std::size_t>(m_regions[region_index].container_size));
+            m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR;
+            m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
         }
 
         // save data to region
-        std::memcpy(m_regions[region_index].data + m_regions[region_index].size, data.get(), destination_length);
-        m_regions[region_index].size += static_cast<int>(destination_length);
+        std::memcpy(m_regions[previous_region_index].data + m_regions[previous_region_index].size, data.get(), destination_length);
+        m_regions[previous_region_index].size += static_cast<int>(destination_length);
     }
 
     // load region of new chunk
@@ -243,7 +257,6 @@ void World::loadChunk(const iVec3 chunk_position)
         std::unique_ptr<Block[]> data{ std::make_unique<Block[]>(SOURCE_LENGTH) };
 
         // load chunk from region
-        auto * beginning_of_chunk = &getBlockNoCheck(chunk_position * CHUNK_SIZE); // address of first block
         uLongf destination_length = SOURCE_LENGTH;
         const auto off = m_regions[region_index].metas[chunk_in_region_index].offset;
         const auto siz = m_regions[region_index].metas[chunk_in_region_index].size;
@@ -270,9 +283,9 @@ void World::loadChunk(const iVec3 chunk_position)
                     getBlockSetPosition(it) = b;
                 }
 #else
+      auto * beginning_of_chunk = &getBlockNoCheck(chunk_position * CHUNK_SIZE); // address of first block
       std::memcpy(beginning_of_chunk, data.get(), SOURCE_LENGTH);
 #endif
-
 
         m_chunk_positions[chunk_index] = chunk_position;
         m_needs_save[chunk_index] = false;
@@ -472,8 +485,8 @@ unsigned char World::vertAO(const bool side_a, const bool side_b, const bool cor
 //==============================================================================
 void World::generateChunk(const iVec3 from_block)
 {
-    // sineChunk(from_block);
-    debugChunk(from_block);
+    sineChunk(from_block);
+    //debugChunk(from_block);
 }
 
 //==============================================================================
@@ -534,7 +547,7 @@ void World::meshLoader()
 {
     while (!m_quit)
     {
-        std::cout << "------------- new loader loop -------------" << std::endl;
+        //std::cout << "------------- new loader loop -------------" << std::endl;
 
         Tasks & tasks = m_tasks[m_back_buffer];
         const iVec3 center = m_center[m_back_buffer];
@@ -597,7 +610,7 @@ void World::meshLoader()
             {
                 const auto from_block = current * MESH_SIZE + MESH_OFFSET;
                 const auto to_block = from_block + MESH_SIZE;
-                std::cout << "Generate Mesh: " << toString(from_block) << toString(to_block) << std::endl;
+                //std::cout << "Generate Mesh: " << toString(from_block) << toString(to_block) << std::endl;
                 //std::cout << "Generate Mesh: " << toString(floorDiv(from_block + 1, MESH_SIZE)) << std::endl;
                 const auto mesh = generateMesh(from_block, to_block);
 

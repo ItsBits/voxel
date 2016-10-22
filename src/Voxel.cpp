@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
+#include "Mouse.hpp"
 
 //==============================================================================
 static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
@@ -37,7 +38,7 @@ Voxel::Voxel(const char * location) :
 void Voxel::run()
 {
     m_window.makeContextCurrent();
-    //m_window.lockMouse();
+    m_window.unlockMouse();
 
     double last_time = glfwGetTime();
 
@@ -48,6 +49,10 @@ void Voxel::run()
         last_time = current_time;
 
         glfwPollEvents();
+
+        const auto scroll = Mouse::getScrollMovement()(1);
+        if (scroll > 0.1) m_window.unlockMouse();
+        else if (scroll < -0.1) m_window.lockMouse();
 
         // update position and stuff
         m_player.updateCameraAndItems();
