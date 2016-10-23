@@ -24,13 +24,17 @@ World::World(const char * location) :
 
     for (auto & i : m_blocks) i = { 0 };
     for (auto & i : m_meshes) i = { 0, 0, 0 };
+
+#ifdef BLOCK_POS_DEBUG
     for (auto & i : m_blocks_positions_DEBUG) i = { 0, 0, 0 };
     m_blocks_positions_DEBUG[0] = { 1, 0, 0 };
+#endif
 
     for (auto & i : m_regions)
     {
         i.position = { 0, 0, 0 };
-        for (auto & i2 : i.metas) i2 = { 0, 0 };
+        for (auto & i2 : i.metas) i2 = { 0, 0, { 0, 0, 0 } };
+        i.metas[0].position = { 1, 0, 0 };
         i.data = nullptr;
         i.size = 0;
         i.container_size = 0;
@@ -47,12 +51,12 @@ World::~World()
 {
     exitLoaderThread();
 
-    // TODO: save changes
+    // TODO: save changes aka. regions to drive
 
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
 
-    // TODO: delete vertex / vao buffers
+    // TODO: delete vertex and vao buffers
 }
 
 //==============================================================================
@@ -89,8 +93,10 @@ Block & World::getBlockCheckPosition(const iVec3 block_position)
 /// end of copy paste
     const int index = chunk_index * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z + block_index;
 
+#ifdef BLOCK_POS_DEBUG
     if (any(block_position != m_blocks_positions_DEBUG[index]))
         std::cout << "Block not loaded: " << toString(block_position) << std::endl;
+#endif
 
     return m_blocks[index];
 }
@@ -112,9 +118,11 @@ Block & World::getBlockSetPosition(const iVec3 block_position)
 /// end of copy paste
     const int index = chunk_index * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z + block_index;
 
+#ifdef BLOCK_POS_DEBUG
     //std::cout << "Replace x by y: " << toString(m_blocks_positions_DEBUG[index]) << toString(block_position) << std::endl;
     // TODO: REMOVE it's a performance eater
     m_blocks_positions_DEBUG[index] = block_position;
+#endif
 
     return m_blocks[index];
 }
@@ -160,10 +168,20 @@ void World::loadRegion(const iVec3 region_position)
     const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
     const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
 
-    // load region file
-    if (any(m_regions[region_index].position != region_position))
+    // return if already loaded
+    if (all(m_regions[region_index].position == region_position)) return;
+
+    // TODO: save old region to drive
+
+    if (0 /*TODO: if file exists*/)
     {
-        // TODO: if exists load from drive and save old if valid to drive instead
+      // load region from drive
+
+      // TODO: if exists load from drive and save old if valid to drive instead
+    }
+    else
+    {
+        // this is something similar to World constructor
 
         // create region file
         auto & region = m_regions[region_index];
@@ -172,7 +190,8 @@ void World::loadRegion(const iVec3 region_position)
         region.data = (Bytef*)std::malloc(REGION_DATA_SIZE_FACTOR);
         region.size = 0;
         region.container_size = REGION_DATA_SIZE_FACTOR;
-        for (auto & i : region.metas) i = { 0, 0 };
+        for (auto & i : region.metas) i = { 0, 0, { 0, 0, 0 } };
+        region.metas[0].position = { 1, 0, 0 };
     }
 }
 
@@ -189,7 +208,11 @@ void World::loadChunk(const iVec3 chunk_position)
 
     // if already loaded
     if (all(m_chunk_positions[chunk_index] == chunk_position)) return;
-
+#if 0
+    static int load_counter = 0;
+    load_counter++;
+    std::cout << load_counter << std::endl;
+#endif
     const auto region_position = floorDiv(chunk_position, REGION_SIZE);
     const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZE);
     const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZE);
@@ -227,11 +250,13 @@ void World::loadChunk(const iVec3 chunk_position)
 
         m_regions[previous_region_index].metas[chunk_in_region_index].size = static_cast<int>(destination_length);
         m_regions[previous_region_index].metas[chunk_in_region_index].offset = m_regions[previous_region_index].size;
+        m_regions[previous_region_index].metas[chunk_in_region_index].position = previous_chunk_position;
 
         // resize if out of space
         // TODO: check if this is off-by-one error with size
         while (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
         {
+            // TODO: improve performance by not reallocating in loop but pre calculate the required new size
             m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR;
             m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
         }
@@ -262,6 +287,8 @@ void World::loadChunk(const iVec3 chunk_position)
         uLongf destination_length = SOURCE_LENGTH;
         const auto off = m_regions[region_index].metas[chunk_in_region_index].offset;
         const auto siz = m_regions[region_index].metas[chunk_in_region_index].size;
+        const auto pos = m_regions[region_index].metas[chunk_in_region_index].position;
+        assert(all(pos == chunk_position) && "Incorrect chunk loaded (or previously incorrect chunk saved).");
 
         const auto * source = m_regions[region_index].data + off;
         auto result = uncompress(
@@ -565,6 +592,9 @@ void World::meshLoader()
         constexpr iVec3 MESH_SIZE{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
         constexpr iVec3 MESH_OFFSET{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
+        // TODO: I suspect that the following loop and the fact that the FIFO Queue for searching for chunks to load
+        // TODO: is causing many performance issues because of a lot of work has to be "remade"
+
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
         for (std::size_t i = 0; i < count;)
@@ -574,6 +604,7 @@ void World::meshLoader()
             const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZE);
             const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZE);
 
+            // TODO: store meshes for a longer time so they don't always need to be rebuild if they get out of range
             if (!inRenderRange(center, mesh_center))
             {
                 tasks.remove.push_back({ mesh_index });

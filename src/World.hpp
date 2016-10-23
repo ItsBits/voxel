@@ -65,7 +65,7 @@ struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
 struct MeshMeta { iVec3 position; int size; };
 
-struct ChunkMeta { int size; int offset; };
+struct ChunkMeta { int size; int offset; iVec3 position; }; // TODO: remove position it's just for debugging purposes
 
 enum class Status : char { UNLOADED, LOADED, CHECKED };
 
@@ -76,6 +76,8 @@ struct Tasks
     std::vector<Render> render;
     std::vector<Upload> upload;
 };
+
+#define BLOCK_POS_DEBUG
 
 //==============================================================================
 class World
@@ -128,7 +130,9 @@ private:
     std::thread m_loader_thread;
     std::string m_data_location;
     Block m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
+#ifdef BLOCK_POS_DEBUG
     iVec3 m_blocks_positions_DEBUG[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
+#endif
     iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     bool m_needs_save[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_mesh_positions[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
