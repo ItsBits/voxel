@@ -28,8 +28,7 @@ World::World(const char * location) :
     for (auto & i : m_regions)
     {
         i.position = { 0, 0, 0 };
-        for (auto & i2 : i.metas) i2 = { 0, 0, { 0, 0, 0 } };
-        i.metas[0].position = { 1, 0, 0 };
+        for (auto & i2 : i.metas) i2 = { 0, 0 };
         i.data = nullptr;
         i.size = 0;
         i.container_size = 0;
@@ -97,7 +96,8 @@ void World::loadRegion(const iVec3 region_position)
     const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
 
     // return if already loaded
-    if (all(m_regions[region_index].position == region_position)) return;
+    if (all(m_regions[region_index].position == region_position))
+      return;
 
     // TODO: save old region to drive
 
@@ -115,11 +115,10 @@ void World::loadRegion(const iVec3 region_position)
         auto & region = m_regions[region_index];
         region.position = region_position;
         std::free(region.data);
-        region.data = (Bytef*)std::malloc(REGION_DATA_SIZE_FACTOR);
+        region.data = (Bytef*)std::malloc(static_cast<std::size_t>(REGION_DATA_SIZE_FACTOR));
         region.size = 0;
         region.container_size = REGION_DATA_SIZE_FACTOR;
-        for (auto & i : region.metas) i = { 0, 0, { 0, 0, 0 } };
-        region.metas[0].position = { 1, 0, 0 };
+        for (auto & i : region.metas) i = { 0, 0 };
     }
 }
 
@@ -185,7 +184,6 @@ void World::loadChunk(const iVec3 chunk_position)
 
         m_regions[previous_region_index].metas[previous_chunk_in_region_index].size = static_cast<int>(destination_length);
         m_regions[previous_region_index].metas[previous_chunk_in_region_index].offset = m_regions[previous_region_index].size;
-        m_regions[previous_region_index].metas[previous_chunk_in_region_index].position = previous_chunk_position;
 
         m_regions[previous_region_index].size += static_cast<int>(destination_length);
     }
@@ -209,8 +207,6 @@ void World::loadChunk(const iVec3 chunk_position)
         uLongf destination_length = static_cast<uLongf>(SOURCE_LENGTH);
         const auto off = m_regions[region_index].metas[chunk_in_region_index].offset;
         const auto siz = m_regions[region_index].metas[chunk_in_region_index].size;
-        const auto pos = m_regions[region_index].metas[chunk_in_region_index].position;
-        assert(all(pos == chunk_position) && "Incorrect chunk loaded (or previously incorrect chunk saved).");
 
         const auto * source = m_regions[region_index].data + off;
         auto result = uncompress(

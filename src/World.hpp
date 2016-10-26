@@ -65,7 +65,7 @@ struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
 struct MeshMeta { iVec3 position; int size; };
 
-struct ChunkMeta { int size; int offset; iVec3 position; }; // TODO: remove position it's just for debugging purposes
+struct ChunkMeta { int size; int offset; };
 
 enum class Status : char { UNLOADED, LOADED, CHECKED };
 
