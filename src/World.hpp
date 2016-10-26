@@ -77,8 +77,6 @@ struct Tasks
     std::vector<Upload> upload;
 };
 
-#define BLOCK_POS_DEBUG
-
 //==============================================================================
 class World
 {
@@ -121,7 +119,8 @@ private:
     static constexpr int RENDER_DISTANCE_X{ RDISTANCE }, RENDER_DISTANCE_Y{ RDISTANCE }, RENDER_DISTANCE_Z{ RDISTANCE };
 
     static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
-    static constexpr int REGION_DATA_SIZE_FACTOR{ 4 * 1024 * 1024 };
+    static constexpr int SOURCE_LENGTH = sizeof(Block) * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
+    static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
 
     //==============================================================================
     // variables
@@ -130,9 +129,6 @@ private:
     std::thread m_loader_thread;
     std::string m_data_location;
     Block m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
-#ifdef BLOCK_POS_DEBUG
-    iVec3 m_blocks_positions_DEBUG[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
-#endif
     iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     bool m_needs_save[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
     iVec3 m_mesh_positions[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
@@ -165,9 +161,7 @@ private:
     //==============================================================================
     // functions
 
-    Block & getBlockNoCheck(const iVec3 block_position);
-    Block & getBlockCheckPosition(const iVec3 block_position);
-    Block & getBlockSetPosition(const iVec3 block_position);
+    Block & getBlock(const iVec3 block_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
     void loadChunk(const iVec3 chunk_position);
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
