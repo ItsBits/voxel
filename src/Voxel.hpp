@@ -25,4 +25,7 @@ private:
     TextureArray m_block_textures;
     GLint block_texture_array_location;
 
+    static constexpr double FRAME_RATE_UPDATE_RATE{ 0.3 };
+    static constexpr double TARGET_FRAME_RATE{ 123.0 };
+
 };

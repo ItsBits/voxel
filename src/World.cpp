@@ -166,7 +166,7 @@ void World::loadChunk(const iVec3 chunk_position)
         // resize if potentially out of space
         while (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
         {
-          std::cout << "reallocating" << std::endl;
+          std::cout << "Reallocating region container." << std::endl;
           // TODO: improve performance by not reallocating in loop but pre calculate the required new size
           m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR;
           m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));

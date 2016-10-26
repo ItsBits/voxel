@@ -42,11 +42,24 @@ void Voxel::run()
 
     double last_time = glfwGetTime();
 
+    int frame_counter = 0;
+    double last_fps_update = last_time;
+
     while (!m_window.exitRequested())
     {
         const double current_time = glfwGetTime();
         double delta_time = current_time - last_time;
         last_time = current_time;
+
+        // update FPS counter
+        if (current_time - last_fps_update > 1.0 / FRAME_RATE_UPDATE_RATE)
+        {
+            const double frame_rate = static_cast<double>(frame_counter) / (current_time - last_fps_update);
+            std::cout << "FPS: " << frame_rate << std::endl;
+            frame_counter = 0;
+            last_fps_update = current_time;
+        }
+        ++frame_counter;
 
         glfwPollEvents();
 
@@ -71,7 +84,11 @@ void Voxel::run()
 
         m_window.swapResizeClearBuffer();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // limit frame rate
+        const auto time_after_render = glfwGetTime();
+        const auto sleep_time = 1.0 / TARGET_FRAME_RATE - (time_after_render - current_time);
+        if (sleep_time > 0.0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int64_t>(sleep_time * 1000.0)));
     }
 
     m_window.unlockMouse();
