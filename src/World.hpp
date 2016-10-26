@@ -1,6 +1,10 @@
 #pragma once
 
 /*
+ * TODO: player position should be chunk relative for float accuracy instead of absolute
+ */
+
+/*
  * 2 Threads:
  *     render
  *     loader
@@ -101,7 +105,7 @@ private:
             //MOFF{ 0 },
             RSIZE{ 512 / CSIZE },
             MIN_CCSIZE{ 6 },
-            RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3}; // round up + 2 instead of + 3 would be prettier
+            RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3 }; // round up + 2 instead of + 3 would be prettier
 
     static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
     static_assert((RDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the render distance.");
@@ -121,6 +125,8 @@ private:
     static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
     static constexpr int SOURCE_LENGTH = sizeof(Block) * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
     static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
+
+    static const std::string WORLD_ROOT;
 
     //==============================================================================
     // variables

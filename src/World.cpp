@@ -7,6 +7,10 @@
 #include <iostream>
 #include <memory>
 #include <cstring>
+#include <fstream>
+
+//==============================================================================
+const std::string World::WORLD_ROOT{ "world/" };
 
 //==============================================================================
 World::World(const char * location) :
@@ -95,17 +99,46 @@ void World::loadRegion(const iVec3 region_position)
     const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
     const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
 
+    const auto old_position = m_regions[region_index].position;
     // return if already loaded
-    if (all(m_regions[region_index].position == region_position))
+    if (all(old_position == region_position))
       return;
 
-    // TODO: save old region to drive
+    constexpr int META_DATA_SIZE = REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z * sizeof(ChunkMeta);
 
-    if (0 /*TODO: if file exists*/)
+    // if valid
+    if (
+            (region_index == 0 && all(old_position == iVec3{ 0, 0, 0 })) ||
+            (region_index != 0 && !all(old_position == iVec3{ 0, 0, 0 }))
+       )
     {
-      // load region from drive
+        // save old region
+        std::cout << "Saving region " << toString(old_position) << std::endl;
+        assert(m_regions[region_index].data != nullptr && "No idea why this can happen.");
 
-      // TODO: if exists load from drive and save old if valid to drive instead
+        std::string file_name = WORLD_ROOT + toString(old_position);
+        std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
+        const auto statut = file.good();
+        file.write(reinterpret_cast<const char *>(&m_regions[region_index].size), sizeof(int));
+        file.write(reinterpret_cast<const char *>(m_regions[region_index].metas), META_DATA_SIZE);
+        file.write(reinterpret_cast<const char *>(m_regions[region_index].data), m_regions[region_index].size);
+    }
+
+    std::string in_file_name = WORLD_ROOT + toString(region_position);
+    std::ifstream in_file{ in_file_name, std::ifstream::binary };
+    if (in_file.good())
+    {
+        // load region from drive because it exists
+        std::cout << "Loading region " << toString(region_position) << std::endl;
+
+        auto & region = m_regions[region_index];
+        region.position = region_position;
+        in_file.read(reinterpret_cast<char *>(&region.size), sizeof(int));
+        in_file.read(reinterpret_cast<char *>(region.metas), META_DATA_SIZE);
+        std::free(region.data);
+        region.data = (Bytef *)std::malloc(static_cast<std::size_t>(region.size));
+        in_file.read(reinterpret_cast<char *>(region.data), region.size);
+        region.container_size = region.size;
     }
     else
     {
@@ -573,6 +606,8 @@ void World::meshLoader()
             m_cond_var.wait(lock, [this] { return m_swap || m_quit; });
             m_swap = false;
         }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
