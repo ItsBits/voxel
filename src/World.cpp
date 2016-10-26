@@ -207,12 +207,15 @@ void World::loadChunk(const iVec3 chunk_position)
     const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZE);
 
     // if already loaded
-    if (all(m_chunk_positions[chunk_index] == chunk_position)) return;
+    if (all(m_chunk_positions[chunk_index] == chunk_position))
+      return;
+
 #if 0
     static int load_counter = 0;
     load_counter++;
     std::cout << load_counter << std::endl;
 #endif
+
     const auto region_position = floorDiv(chunk_position, REGION_SIZE);
     const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZE);
     const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZE);
@@ -234,6 +237,9 @@ void World::loadChunk(const iVec3 chunk_position)
         const auto previous_region_relative = floorMod(previous_region_position, REGION_CONTAINER_SIZE);
         const auto previous_region_index = toIndex(previous_region_relative, REGION_CONTAINER_SIZE);
 
+        const auto previous_chunk_in_region_relative = floorMod(previous_chunk_position, REGION_SIZE);
+        const auto previous_chunk_in_region_index = toIndex(previous_chunk_in_region_relative, REGION_SIZE);
+
         // TODO: remove indirection: zlib -> unique_ptr -> region. Replace with: zlib -> region
 
         // compress chunk
@@ -248,9 +254,9 @@ void World::loadChunk(const iVec3 chunk_position)
         auto result = compress(reinterpret_cast<Bytef *>(data.get()), &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), SOURCE_LENGTH); // TODO: checkout compress2 function
         assert(result == Z_OK && "Error compressing chunk.");
 
-        m_regions[previous_region_index].metas[chunk_in_region_index].size = static_cast<int>(destination_length);
-        m_regions[previous_region_index].metas[chunk_in_region_index].offset = m_regions[previous_region_index].size;
-        m_regions[previous_region_index].metas[chunk_in_region_index].position = previous_chunk_position;
+        m_regions[previous_region_index].metas[previous_chunk_in_region_index].size = static_cast<int>(destination_length);
+        m_regions[previous_region_index].metas[previous_chunk_in_region_index].offset = m_regions[previous_region_index].size;
+        m_regions[previous_region_index].metas[previous_chunk_in_region_index].position = previous_chunk_position;
 
         // resize if out of space
         // TODO: check if this is off-by-one error with size
