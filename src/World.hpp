@@ -184,4 +184,6 @@ private:
     void exitLoaderThread();
     static bool inFrustum();
     void loadRegion(const iVec3 region_position);
+    void saveChunkToRegion(const int chunk_index);
+    void saveRegionToDrive(const int region_index);
 };

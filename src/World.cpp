@@ -48,14 +48,58 @@ World::World(const char * location) :
 //==============================================================================
 World::~World()
 {
+    std::cout << "Exiting loader thread." << std::endl;
+
     exitLoaderThread();
 
-    // TODO: save changes aka. regions to drive
+    std::cout << "Saving chunks." << std::endl;
+
+    constexpr auto CHUNK_CONTAINER_SIZE = CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z;
+    constexpr auto REGION_CONTAINER_SIZE = REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z;
+    constexpr auto MESH_CONTAINER_SIZE = MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z;
+
+    // check all chunks if they need to be saved and save them
+    for (auto chunk_index = 0; chunk_index < CHUNK_CONTAINER_SIZE; ++chunk_index)
+        if (m_needs_save[chunk_index])
+            saveChunkToRegion(chunk_index);
+
+    // save all valid regions
+    for (auto region_index = 0; region_index < REGION_CONTAINER_SIZE; ++region_index)
+        saveRegionToDrive(region_index);
+
+    std::cout << "Cleaning up memory." << std::endl;
 
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
 
-    // TODO: delete vertex and vao buffers
+    // delete vertex and vao buffers from active meshes
+    for (auto mesh_index = 0; mesh_index < MESH_CONTAINER_SIZE; ++mesh_index)
+    {
+        auto & mesh_data = m_meshes[mesh_index];
+
+        // only both equal to 0 or both not equal to 0 is valid
+        if (mesh_data.VAO == 0 && mesh_data.VBO == 0) continue;
+        assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "Active buffers should not be 0.");
+
+        glDeleteVertexArrays(1, &mesh_data.VAO);
+        glDeleteBuffers(1, &mesh_data.VBO);
+
+        mesh_data.VAO = 0;
+        mesh_data.VBO = 0;
+        mesh_data.size = 0;
+    }
+
+    // delete vertex and vao buffers from unused meshes
+    while (!m_unused_buffers.empty())
+    {
+        const auto & top = m_unused_buffers.top();
+
+        assert(top.VAO != 0 && top.VBO != 0 && "Unused buffers should not be 0.");
+        glDeleteVertexArrays(1, &top.VAO);
+        glDeleteBuffers(1, &top.VBO);
+
+        m_unused_buffers.pop();
+    }
 }
 
 //==============================================================================
@@ -101,29 +145,15 @@ void World::loadRegion(const iVec3 region_position)
     const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
 
     const auto old_position = m_regions[region_index].position;
+
     // return if already loaded
     if (all(old_position == region_position))
       return;
 
+    // save existing region
+    saveRegionToDrive(region_index);
+
     constexpr int META_DATA_SIZE = REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z * sizeof(ChunkMeta);
-
-    // if valid
-    if (
-            (region_index == 0 && all(old_position == iVec3{ 0, 0, 0 })) ||
-            (region_index != 0 && !all(old_position == iVec3{ 0, 0, 0 }))
-       )
-    {
-        // save old region
-        std::cout << "Saving region " << toString(old_position) << std::endl;
-        assert(m_regions[region_index].data != nullptr && "No idea why this can happen.");
-
-        std::string file_name = WORLD_ROOT + toString(old_position);
-        std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
-        const auto statut = file.good();
-        file.write(reinterpret_cast<const char *>(&m_regions[region_index].size), sizeof(int));
-        file.write(reinterpret_cast<const char *>(m_regions[region_index].metas), META_DATA_SIZE);
-        file.write(reinterpret_cast<const char *>(m_regions[region_index].data), m_regions[region_index].size);
-    }
 
     std::string in_file_name = WORLD_ROOT + toString(region_position);
     std::ifstream in_file{ in_file_name, std::ifstream::binary };
@@ -182,44 +212,7 @@ void World::loadChunk(const iVec3 chunk_position)
     // save previous chunk
     if (m_needs_save[chunk_index])
     {
-         // load correct region file
-        const auto previous_chunk_position = m_chunk_positions[chunk_index];
-        const auto previous_region_position = floorDiv(previous_chunk_position, REGION_SIZE);
-        loadRegion(previous_region_position);
-
-        const auto previous_region_relative = floorMod(previous_region_position, REGION_CONTAINER_SIZE);
-        const auto previous_region_index = toIndex(previous_region_relative, REGION_CONTAINER_SIZE);
-
-        const auto previous_chunk_in_region_relative = floorMod(previous_chunk_position, REGION_SIZE);
-        const auto previous_chunk_in_region_index = toIndex(previous_chunk_in_region_relative, REGION_SIZE);
-
-        // compress chunk
-        uLong destination_length = compressBound(static_cast<uLong>(SOURCE_LENGTH)); // compressBound could be static
-
-        // resize if potentially out of space
-        while (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
-        {
-          std::cout << "Reallocating region container." << std::endl;
-          // TODO: improve performance by not reallocating in loop but pre calculate the required new size
-          m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR;
-          m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
-        }
-
-        const auto * beginning_of_chunk = &getBlock(previous_chunk_position * CHUNK_SIZE); // address of first block
-        Bytef * destination = m_regions[previous_region_index].data + m_regions[previous_region_index].size;
-
-        // TODO: checkout compress2 function
-        // TODO: checkout other compression libraries that are faster
-        // compress and save at once data to region
-        auto result = compress(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH));
-
-        assert(result == Z_OK && "Error compressing chunk.");
-        assert(destination_length <= compressBound(static_cast<uLong>(SOURCE_LENGTH)) && "ZLib lied about the maximum possible size of compressed data.");
-
-        m_regions[previous_region_index].metas[previous_chunk_in_region_index].size = static_cast<int>(destination_length);
-        m_regions[previous_region_index].metas[previous_chunk_in_region_index].offset = m_regions[previous_region_index].size;
-
-        m_regions[previous_region_index].size += static_cast<int>(destination_length);
+        saveChunkToRegion(chunk_index);
     }
 
     // load region of new chunk
@@ -776,4 +769,78 @@ bool World::inFrustum()
 {
     // TODO: implement (needs AABB and frustum data passed in to compute)
     return true;
+}
+
+//==============================================================================
+void World::saveChunkToRegion(const int chunk_index)
+{
+    // TODO: move all those constexpr out of functions (all functions) in to class
+    constexpr iVec3 REGION_SIZE{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
+    constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
+    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
+
+    // load correct region file
+    const auto previous_chunk_position = m_chunk_positions[chunk_index];
+    const auto previous_region_position = floorDiv(previous_chunk_position, REGION_SIZE);
+    loadRegion(previous_region_position);
+
+    const auto previous_region_relative = floorMod(previous_region_position, REGION_CONTAINER_SIZE);
+    const auto previous_region_index = toIndex(previous_region_relative, REGION_CONTAINER_SIZE);
+
+    const auto previous_chunk_in_region_relative = floorMod(previous_chunk_position, REGION_SIZE);
+    const auto previous_chunk_in_region_index = toIndex(previous_chunk_in_region_relative, REGION_SIZE);
+
+    // compress chunk
+    uLong destination_length = compressBound(static_cast<uLong>(SOURCE_LENGTH)); // compressBound could be static
+
+    // resize if potentially out of space
+    while (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
+    {
+        std::cout << "Reallocating region container." << std::endl;
+        // TODO: improve performance by not reallocating in loop but pre calculate the required new size
+        m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR;
+        m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
+    }
+
+    const auto * beginning_of_chunk = &getBlock(previous_chunk_position * CHUNK_SIZE); // address of first block
+    Bytef * destination = m_regions[previous_region_index].data + m_regions[previous_region_index].size;
+
+    // TODO: checkout compress2 function
+    // TODO: checkout other compression libraries that are faster
+    // compress and save at once data to region
+    auto result = compress(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH));
+
+    assert(result == Z_OK && "Error compressing chunk.");
+    assert(destination_length <= compressBound(static_cast<uLong>(SOURCE_LENGTH)) && "ZLib lied about the maximum possible size of compressed data.");
+
+    m_regions[previous_region_index].metas[previous_chunk_in_region_index].size = static_cast<int>(destination_length);
+    m_regions[previous_region_index].metas[previous_chunk_in_region_index].offset = m_regions[previous_region_index].size;
+
+    m_regions[previous_region_index].size += static_cast<int>(destination_length);
+}
+
+//==============================================================================
+void World::saveRegionToDrive(const int region_index)
+{
+    constexpr int META_DATA_SIZE = REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z * sizeof(ChunkMeta);
+
+    const auto position = m_regions[region_index].position;
+
+    // only if valid
+    if (
+            (region_index == 0 && all(position == iVec3{ 0, 0, 0 })) ||
+            (region_index != 0 && !all(position == iVec3{ 0, 0, 0 }))
+        )
+    {
+        // save old region
+        std::cout << "Saving region " << toString(position) << std::endl;
+        assert(m_regions[region_index].data != nullptr && "No idea why this can happen.");
+
+        std::string file_name = WORLD_ROOT + toString(position);
+        std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
+        const auto statut = file.good();
+        file.write(reinterpret_cast<const char *>(&m_regions[region_index].size), sizeof(int));
+        file.write(reinterpret_cast<const char *>(m_regions[region_index].metas), META_DATA_SIZE);
+        file.write(reinterpret_cast<const char *>(m_regions[region_index].data), m_regions[region_index].size);
+    }
 }
