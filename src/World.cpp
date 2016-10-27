@@ -19,7 +19,8 @@ World::World(const char * location) :
         m_back_buffer{ 0 },
         m_quit{ false },
         m_swap{ false },
-        m_loader_waiting{ false }
+        m_loader_waiting{ false },
+        m_moved_far{ false }
 {
     for (auto & i : m_chunk_positions) i = { 0, 0, 0 };
     for (auto & i : m_mesh_positions) i = { 0, 0, 0 };
@@ -558,7 +559,7 @@ void World::meshLoader()
         check_list.push(center_mesh);
 
         // breadth first search finds all borders of loaded are and loads it
-        while (!check_list.empty() && tasks.upload.size() < 8) // TODO: or player moved far enough
+        while (!check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
         {
             const auto current = check_list.front();
             check_list.pop();
@@ -599,6 +600,8 @@ void World::meshLoader()
             m_mesh_loaded[current_index] = Status::CHECKED;
         }
 
+        if (m_moved_far) std::cout << "Resetting because moved far." << std::endl;
+
         {
             // request task buffer swap wait for it
             std::unique_lock<std::mutex> lock{ m_lock };
@@ -630,8 +633,12 @@ bool World::inRenderRange(const iVec3 center_block, const iVec3 position_block)
 void World::draw(const iVec3 new_center)
 {
     Tasks & tasks = m_tasks[(m_back_buffer + 1) % 2];
-    /*const iVec3 center = */
     m_center[(m_back_buffer + 1) % 2] = new_center;
+
+    const auto delta_movement = new_center - m_center[m_back_buffer];
+    const auto square_distance = dot(delta_movement, delta_movement);
+    const auto moved_far = square_distance >= SQUARE_LOAD_RESET_DISTANCE;
+    m_moved_far = m_moved_far || moved_far; // set as soon as outside range once
 
     // remove
     if (!tasks.remove.empty())
@@ -736,6 +743,7 @@ void World::draw(const iVec3 new_center)
             m_back_buffer = (m_back_buffer + 1) % 2;
             m_swap = true;
             m_loader_waiting = false;
+            m_moved_far = false;
             m_cond_var.notify_all();
         }
     }

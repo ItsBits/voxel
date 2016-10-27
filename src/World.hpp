@@ -126,7 +126,10 @@ private:
     static constexpr int SOURCE_LENGTH = sizeof(Block) * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
     static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
 
-    static const std::string WORLD_ROOT;
+    static const std::string WORLD_ROOT; // TODO: make constexpr (possible in C++17 ?)
+
+    static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * MSIZE };
+    static constexpr int MESH_COUNT_NEEDED_FOR_RESET{ 10 };
 
     //==============================================================================
     // variables
@@ -163,6 +166,7 @@ private:
     std::condition_variable m_cond_var;
     bool m_swap;
     std::atomic_bool m_loader_waiting;
+    std::atomic_bool m_moved_far;
 
     //==============================================================================
     // functions
