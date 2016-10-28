@@ -67,7 +67,7 @@ struct Upload { int index; iVec3 position; std::vector<Vertex> mesh; };
 
 struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
-struct MeshMeta { iVec3 position; int size; };
+struct MeshMeta { iVec3 position; bool empty; };
 
 struct ChunkMeta { int size; int offset; };
 
@@ -104,15 +104,13 @@ private:
             MOFF{ MESH_BORDER_REQUIRED_SIZE }, // or maybe do chunk_size / 2
             //MOFF{ 0 },
             RSIZE{ 512 / CSIZE },
-            MIN_CCSIZE{ 6 },
+            CCSIZE{ 6 },
             RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3 }; // round up + 2 instead of + 3 would be prettier
 
     static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
     static_assert((RDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the render distance.");
+    static_assert(((MESH_BORDER_REQUIRED_SIZE * 2 + MSIZE) + (CSIZE - 1)) / CSIZE <= CCSIZE, "Chunk container size too small.");
 
-    // TODO: fix this equation the result is too small
-    //static constexpr int CCSIZE{ maxC(((MESH_BORDER_REQUIRED_SIZE * 2 + MSIZE) + (CSIZE - 1)) / CSIZE, MIN_CCSIZE) }; // round up and pick max so meshes can actually load
-    static constexpr int CCSIZE{ MIN_CCSIZE };
     static constexpr int CHUNK_SIZE_X{ CSIZE }, CHUNK_SIZE_Y{ CSIZE }, CHUNK_SIZE_Z{ CSIZE };
     static constexpr int CHUNK_CONTAINER_SIZE_X{ CCSIZE }, CHUNK_CONTAINER_SIZE_Y{ CCSIZE }, CHUNK_CONTAINER_SIZE_Z{ CCSIZE };
     static constexpr int MESH_SIZE_X{ MSIZE }, MESH_SIZE_Y{ MSIZE }, MESH_SIZE_Z{ MSIZE };
@@ -122,14 +120,35 @@ private:
     static constexpr int REGION_CONTAINER_SIZE_X{ RCSIZE }, REGION_CONTAINER_SIZE_Y{ RCSIZE }, REGION_CONTAINER_SIZE_Z{ RCSIZE };
     static constexpr int RENDER_DISTANCE_X{ RDISTANCE }, RENDER_DISTANCE_Y{ RDISTANCE }, RENDER_DISTANCE_Z{ RDISTANCE };
 
+    static constexpr int CHUNK_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z };
+    static constexpr int CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z };
+    static constexpr int REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z };
+    static constexpr int MESH_CONTAINER_SIZE{ MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z };
+    static constexpr int REGION_SIZE{ REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z };
+
+    static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
+
+    static constexpr int SQUARE_RENDER_DISTANCE{ RENDER_DISTANCE_X * RENDER_DISTANCE_X + RENDER_DISTANCE_Y * RENDER_DISTANCE_Y + RENDER_DISTANCE_Z * RENDER_DISTANCE_Z };
+
     static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
-    static constexpr int SOURCE_LENGTH = sizeof(Block) * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
+    static constexpr int SOURCE_LENGTH{ sizeof(Block) * CHUNK_SIZE };
     static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
 
-    static const std::string WORLD_ROOT; // TODO: make constexpr (possible in C++17 ?)
+    static constexpr char WORLD_ROOT[]{ "world/" };
+
+    static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
     static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * MSIZE };
     static constexpr int MESH_COUNT_NEEDED_FOR_RESET{ 10 };
+
+    static constexpr iVec3 CHUNK_SIZES{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
+    static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
+    static constexpr iVec3 CHUNK_CONTAINER_SIZES{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
+    static constexpr iVec3 REGION_CONTAINER_SIZES{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
+
+    static constexpr iVec3 MESH_CONTAINER_SIZES{ MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z };
+    static constexpr iVec3 MESH_SIZES{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
+    static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
     //==============================================================================
     // variables
@@ -137,24 +156,24 @@ private:
     // loader thread data
     std::thread m_loader_thread;
     std::string m_data_location;
-    Block m_blocks[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
-    iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
-    bool m_needs_save[CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z];
-    iVec3 m_mesh_positions[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
+    Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE];
+    iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE];
+    bool m_needs_save[CHUNK_CONTAINER_SIZE];
+    iVec3 m_mesh_positions[MESH_CONTAINER_SIZE];
     // TODO: more space efficient format than current (3 states only needed)
-    Status m_mesh_loaded[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z];
+    Status m_mesh_loaded[MESH_CONTAINER_SIZE];
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
     struct Region
     {
         iVec3 position;
-        ChunkMeta metas[REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z];
+        ChunkMeta metas[REGION_SIZE];
         Bytef * data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
-    } m_regions[REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z];
+    } m_regions[REGION_CONTAINER_SIZE];
 
     // renderer thread data
-    Mesh m_meshes[MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z]; // kind of mirrors m_mesh_positions
+    Mesh m_meshes[MESH_CONTAINER_SIZE]; // kind of mirrors m_mesh_positions
     std::stack<UnusedBuffer> m_unused_buffers;
 
     // shared / synchronization data

@@ -5,12 +5,21 @@
 #include <cmath>
 #include "TinyAlgebraStringCast.hpp"
 #include <iostream>
-#include <memory>
 #include <cstring>
 #include <fstream>
 
 //==============================================================================
-const std::string World::WORLD_ROOT{ "world/" };
+constexpr char World::WORLD_ROOT[];
+constexpr iVec3 World::CHUNK_SIZES;
+constexpr iVec3 World::CHUNK_CONTAINER_SIZES;
+constexpr iVec3 World::REGION_CONTAINER_SIZES;
+constexpr int World::META_DATA_SIZE;
+constexpr iVec3 World::REGION_SIZES;
+constexpr int World::MESH_BORDER_REQUIRED_SIZE;
+constexpr unsigned char World::SHADDOW_STRENGTH;
+constexpr iVec3 World::MESH_CONTAINER_SIZES;
+constexpr iVec3 World::MESH_SIZES;
+constexpr iVec3 World::MESH_OFFSETS;
 
 //==============================================================================
 World::World(const char * location) :
@@ -53,10 +62,6 @@ World::~World()
     exitLoaderThread();
 
     std::cout << "Saving chunks." << std::endl;
-
-    constexpr auto CHUNK_CONTAINER_SIZE = CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z;
-    constexpr auto REGION_CONTAINER_SIZE = REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z;
-    constexpr auto MESH_CONTAINER_SIZE = MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z;
 
     // check all chunks if they need to be saved and save them
     for (auto chunk_index = 0; chunk_index < CHUNK_CONTAINER_SIZE; ++chunk_index)
@@ -105,27 +110,22 @@ World::~World()
 //==============================================================================
 Block & World::getBlock(const iVec3 block_position)
 {
-    constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-    constexpr iVec3 CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
+    const auto relative_position = floorMod(block_position, CHUNK_SIZES);
+    const auto chunk_position = floorDiv(block_position, CHUNK_SIZES);
+    const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZES);
 
-    const auto relative_position = floorMod(block_position, CHUNK_SIZE);
-    const auto chunk_position = floorDiv(block_position, CHUNK_SIZE);
-    const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZE);
+    const auto block_index = toIndex(relative_position, CHUNK_SIZES);
 
-    const auto block_index = toIndex(relative_position, CHUNK_SIZE);
+    const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZES);
 
-    const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZE);
-
-    return m_blocks[chunk_index * CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z + block_index];
+    return m_blocks[chunk_index * CHUNK_SIZE + block_index];
 }
 
 //==============================================================================
 void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 {
-    constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-
-    const auto chunk_position_from = floorDiv(from_block, CHUNK_SIZE);
-    const auto chunk_position_to = floorDiv(to_block - 1, CHUNK_SIZE);
+    const auto chunk_position_from = floorDiv(from_block, CHUNK_SIZES);
+    const auto chunk_position_to = floorDiv(to_block - 1, CHUNK_SIZES);
 
     iVec3 it;
 
@@ -140,9 +140,8 @@ void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 //==============================================================================
 void World::loadRegion(const iVec3 region_position)
 {
-    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
-    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
-    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
+    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZES);
+    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZES);
 
     const auto old_position = m_regions[region_index].position;
 
@@ -152,8 +151,6 @@ void World::loadRegion(const iVec3 region_position)
 
     // save existing region
     saveRegionToDrive(region_index);
-
-    constexpr int META_DATA_SIZE = REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z * sizeof(ChunkMeta);
 
     std::string in_file_name = WORLD_ROOT + toString(region_position);
     std::ifstream in_file{ in_file_name, std::ifstream::binary };
@@ -189,25 +186,20 @@ void World::loadRegion(const iVec3 region_position)
 //==============================================================================
 void World::loadChunk(const iVec3 chunk_position)
 {
-    constexpr iVec3 CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
-    constexpr iVec3 REGION_SIZE{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
-    constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
+    const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZES);
 
-    const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZE);
-
-    const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZE);
+    const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZES);
 
     // if already loaded
     if (all(m_chunk_positions[chunk_index] == chunk_position))
       return;
 
-    const auto region_position = floorDiv(chunk_position, REGION_SIZE);
-    const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZE);
-    const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZE);
+    const auto region_position = floorDiv(chunk_position, REGION_SIZES);
+    const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZES);
+    const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZES);
 
-    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
-    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZE);
-    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZE);
+    const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZES);
+    const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZES);
 
     // save previous chunk
     if (m_needs_save[chunk_index])
@@ -221,14 +213,14 @@ void World::loadChunk(const iVec3 chunk_position)
     // generate new chunk
     if (m_regions[region_index].metas[chunk_in_region_index].size == 0)
     {
-        generateChunk(chunk_position * CHUNK_SIZE);
+        generateChunk(chunk_position * CHUNK_SIZES);
         m_chunk_positions[chunk_index] = chunk_position;
         m_needs_save[chunk_index] = true;
     }
     // load chunk from region
     else
     {
-        auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZE); // address of first block
+        auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZES); // address of first block
 
         // load chunk from region
         uLongf destination_length = static_cast<uLongf>(SOURCE_LENGTH);
@@ -250,9 +242,9 @@ void World::loadChunk(const iVec3 chunk_position)
 //==============================================================================
 std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_block)
 {
-    constexpr unsigned char SHADDOW_STRENGTH{ 60 };
-    constexpr decltype(MESH_BORDER_REQUIRED_SIZE) BORDER{ MESH_BORDER_REQUIRED_SIZE }; // hack to prevent undefined reference // TODO: research why this happens
-    loadChunkRange(from_block - BORDER, to_block + BORDER);
+    const auto f = from_block - MESH_BORDER_REQUIRED_SIZE;
+    const auto t = to_block + MESH_BORDER_REQUIRED_SIZE;
+    loadChunkRange(f, t);
 
     iVec3 position;
     std::vector<Vertex> mesh;
@@ -447,12 +439,11 @@ void World::generateChunk(const iVec3 from_block)
 //==============================================================================
 void World::debugChunk(const iVec3 from_block)
 {
-    constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-    const iVec3 to_block = from_block + CHUNK_SIZE;
+    const iVec3 to_block = from_block + CHUNK_SIZES;
 
     iVec3 position;
 
-    const auto pos_maybe = floorDiv(from_block, CHUNK_SIZE);
+    const auto pos_maybe = floorDiv(from_block, CHUNK_SIZES);
 
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
@@ -473,11 +464,7 @@ void World::debugChunk(const iVec3 from_block)
 //==============================================================================
 void World::sineChunk(const iVec3 from_block)
 {
-  // TODO: pre calculate chunk offset to improve performance (getBlock() recalculates chunk offset every time it is called)
-
-  constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-
-  const iVec3 to_block = from_block + CHUNK_SIZE;
+  const iVec3 to_block = from_block + CHUNK_SIZES;
 
   iVec3 position;
 
@@ -512,10 +499,6 @@ void World::meshLoader()
 
         for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
-        constexpr iVec3 MESH_CONTAINER_SIZE{ MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z };
-        constexpr iVec3 MESH_SIZE{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
-        constexpr iVec3 MESH_OFFSET{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
-
         // TODO: I suspect that the following loop and the fact that the FIFO Queue for searching for chunks to load
         // TODO: is causing many performance issues because of a lot of work has to be "remade"
 
@@ -523,20 +506,20 @@ void World::meshLoader()
         std::size_t count = m_loaded_meshes.size();
         for (std::size_t i = 0; i < count;)
         {
-            const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZE + MESH_OFFSET + (MESH_SIZE / 2);
+            const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
 
-            const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZE);
-            const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZE);
+            const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZES);
+            const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZES);
 
             // TODO: store meshes for a longer time so they don't always need to be rebuild if they get out of range
             if (!inRenderRange(center, mesh_center))
             {
                 tasks.remove.push_back({ mesh_index });
-                m_loaded_meshes[i] = m_loaded_meshes[--count]; // TODO: could check if in range and only swap with first that is in range from back
+                m_loaded_meshes[i] = m_loaded_meshes[--count];
             }
             else
             {
-                if (m_loaded_meshes[i].size > 0)
+                if (!m_loaded_meshes[i].empty)
                     tasks.render.push_back({ mesh_index, m_loaded_meshes[i].position });
                 m_mesh_loaded[mesh_index] = Status::LOADED;
                 ++i;
@@ -548,7 +531,7 @@ void World::meshLoader()
         // find meshes to generate and generate them
         std::queue<iVec3> check_list;
         // add center mesh
-        const auto center_mesh = floorDiv(center - MESH_OFFSET, MESH_SIZE);
+        const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
         check_list.push(center_mesh);
 
         // breadth first search finds all borders of loaded are and loads it
@@ -556,7 +539,7 @@ void World::meshLoader()
         {
             const auto current = check_list.front();
             check_list.pop();
-            const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZE);
+            const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
 
             if (m_mesh_loaded[current_index] == Status::CHECKED)
             {
@@ -565,14 +548,14 @@ void World::meshLoader()
             // load
             else if (m_mesh_loaded[current_index] == Status::UNLOADED)
             {
-                const auto from_block = current * MESH_SIZE + MESH_OFFSET;
-                const auto to_block = from_block + MESH_SIZE;
+                const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
+                const auto to_block = from_block + MESH_SIZES;
                 const auto mesh = generateMesh(from_block, to_block);
 
                 if (mesh.size() > 0) tasks.upload.push_back({ current_index, current, mesh });
 
                 m_mesh_loaded[current_index] = Status::CHECKED;
-                m_loaded_meshes.push_back({ current, static_cast<int>(mesh.size()) }); // TODO: size doesn't really matter. Only size!=0? matters => bool
+                m_loaded_meshes.push_back({ current, mesh.size() == 0 });
             }
             // push neighbours that are in render radius
             else if (m_mesh_loaded[current_index] == Status::LOADED)
@@ -583,7 +566,7 @@ void World::meshLoader()
                 };
 
                 for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
-                    if (inRenderRange(center, *pos * MESH_SIZE + MESH_OFFSET + (MESH_SIZE / 2)))
+                    if (inRenderRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2)))
                         check_list.push(*pos);
             }
             else
@@ -610,12 +593,6 @@ void World::meshLoader()
 //==============================================================================
 bool World::inRenderRange(const iVec3 center_block, const iVec3 position_block)
 {
-    constexpr int SQUARE_RENDER_DISTANCE{
-            RENDER_DISTANCE_X * RENDER_DISTANCE_X +
-            RENDER_DISTANCE_Y * RENDER_DISTANCE_Y +
-            RENDER_DISTANCE_Z * RENDER_DISTANCE_Z
-    };
-
     const iVec3 distances = position_block - center_block;
     const int square_distance = dot(distances, distances);
 
@@ -639,8 +616,10 @@ void World::draw(const iVec3 new_center)
       const Remove & task = tasks.remove.back();
 
       auto & mesh_data = m_meshes[task.index];
+
       // TODO: figure out why possibly invalid indexes are given by loader and reimplement the commented out line instead of buffer delete
 #if 0
+        assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
         m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
 #else
       glDeleteBuffers(1, &mesh_data.VBO);
@@ -649,7 +628,7 @@ void World::draw(const iVec3 new_center)
       mesh_data.VAO = 0;
       mesh_data.VBO = 0;
 
-      // TODO: resize buffer to 0 to save memory
+      // TODO: resize buffer to 0 to save memory (not relevant at the moment because buffers are deleted)
 
       tasks.remove.pop_back();
     }
@@ -774,21 +753,16 @@ bool World::inFrustum()
 //==============================================================================
 void World::saveChunkToRegion(const int chunk_index)
 {
-    // TODO: move all those constexpr out of functions (all functions) in to class
-    constexpr iVec3 REGION_SIZE{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
-    constexpr iVec3 CHUNK_SIZE{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-    constexpr iVec3 REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
-
     // load correct region file
     const auto previous_chunk_position = m_chunk_positions[chunk_index];
-    const auto previous_region_position = floorDiv(previous_chunk_position, REGION_SIZE);
+    const auto previous_region_position = floorDiv(previous_chunk_position, REGION_SIZES);
     loadRegion(previous_region_position);
 
-    const auto previous_region_relative = floorMod(previous_region_position, REGION_CONTAINER_SIZE);
-    const auto previous_region_index = toIndex(previous_region_relative, REGION_CONTAINER_SIZE);
+    const auto previous_region_relative = floorMod(previous_region_position, REGION_CONTAINER_SIZES);
+    const auto previous_region_index = toIndex(previous_region_relative, REGION_CONTAINER_SIZES);
 
-    const auto previous_chunk_in_region_relative = floorMod(previous_chunk_position, REGION_SIZE);
-    const auto previous_chunk_in_region_index = toIndex(previous_chunk_in_region_relative, REGION_SIZE);
+    const auto previous_chunk_in_region_relative = floorMod(previous_chunk_position, REGION_SIZES);
+    const auto previous_chunk_in_region_index = toIndex(previous_chunk_in_region_relative, REGION_SIZES);
 
     // compress chunk
     uLong destination_length = compressBound(static_cast<uLong>(SOURCE_LENGTH)); // compressBound could be static
@@ -802,7 +776,7 @@ void World::saveChunkToRegion(const int chunk_index)
         m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
     }
 
-    const auto * beginning_of_chunk = &getBlock(previous_chunk_position * CHUNK_SIZE); // address of first block
+    const auto * beginning_of_chunk = &getBlock(previous_chunk_position * CHUNK_SIZES); // address of first block
     Bytef * destination = m_regions[previous_region_index].data + m_regions[previous_region_index].size;
 
     // TODO: checkout compress2 function
@@ -822,8 +796,6 @@ void World::saveChunkToRegion(const int chunk_index)
 //==============================================================================
 void World::saveRegionToDrive(const int region_index)
 {
-    constexpr int META_DATA_SIZE = REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z * sizeof(ChunkMeta);
-
     const auto position = m_regions[region_index].position;
 
     // only if valid
@@ -838,7 +810,7 @@ void World::saveRegionToDrive(const int region_index)
 
         std::string file_name = WORLD_ROOT + toString(position);
         std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
-        const auto statut = file.good();
+
         file.write(reinterpret_cast<const char *>(&m_regions[region_index].size), sizeof(int));
         file.write(reinterpret_cast<const char *>(m_regions[region_index].metas), META_DATA_SIZE);
         file.write(reinterpret_cast<const char *>(m_regions[region_index].data), m_regions[region_index].size);
