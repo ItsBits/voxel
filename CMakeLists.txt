@@ -3,7 +3,7 @@ project(voxel)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
-set(SOURCE_FILES src/main.cpp src/Voxel.cpp src/Voxel.hpp src/Window.cpp src/Window.hpp src/Mouse.cpp src/Mouse.hpp src/TinyAlgebra.hpp src/Keyboard.cpp src/Keyboard.hpp src/World.cpp src/World.hpp src/Block.hpp src/QuadEBO.cpp src/QuadEBO.hpp src/Shader.cpp src/Shader.hpp src/Camera.hpp src/Player.cpp src/Player.hpp src/Texture.cpp src/Texture.hpp src/TextureArray.cpp src/TextureArray.hpp src/TinyAlgebraStringCast.hpp)
+set(SOURCE_FILES src/main.cpp src/Voxel.cpp src/Voxel.hpp src/Window.cpp src/Window.hpp src/Mouse.cpp src/Mouse.hpp src/TinyAlgebra.hpp src/Keyboard.cpp src/Keyboard.hpp src/World.cpp src/World.hpp src/Block.hpp src/QuadEBO.cpp src/QuadEBO.hpp src/Shader.cpp src/Shader.hpp src/Camera.hpp src/Player.cpp src/Player.hpp src/Texture.cpp src/Texture.hpp src/TextureArray.cpp src/TextureArray.hpp src/TinyAlgebraExtensions.hpp)
 add_executable(voxel ${SOURCE_FILES})
 
 # for <atomic>

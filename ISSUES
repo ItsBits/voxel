@@ -1,3 +1,4 @@
 * sometimes it appears that there is a deadlock when exiting loader thread
 * at low frame rates, keyboard feels unresponsive
 * chunk loading feels unresponsive when moving fast
+* frustum culling sometimes removes too many chunks

@@ -87,8 +87,7 @@ class World
 public:
     World(const char * location);
     ~World();
-    // TODO: pass center and frustum to the function
-    void draw(const iVec3 new_center);
+    void draw(const iVec3 new_center, const fVec4 frustum_planes[6]);
 
 private:
     //==============================================================================
@@ -201,7 +200,7 @@ private:
     void meshLoader();
     bool inRenderRange(const iVec3 center_block, const iVec3 position_block);
     void exitLoaderThread();
-    static bool inFrustum();
+    static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
     void saveChunkToRegion(const int chunk_index);
     void saveRegionToDrive(const int region_index);

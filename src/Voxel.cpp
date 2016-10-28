@@ -3,6 +3,7 @@
 #include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 #include "Mouse.hpp"
+#include "TinyAlgebraExtensions.hpp"
 
 //==============================================================================
 static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
@@ -80,7 +81,9 @@ void Voxel::run()
         m_block_textures.bind(GL_TEXTURE0);
         // TODO: call m_world.draw(center, frustum)
         const auto center = m_player.getPosition();
-        m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }));
+        fVec4 frustum_planes[6];
+        matrixToFrustums(VP_matrix, frustum_planes);
+        m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }), frustum_planes);
 
         m_window.swapResizeClearBuffer();
 

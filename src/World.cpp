@@ -3,7 +3,7 @@
 #include <queue>
 #include <cassert>
 #include <cmath>
-#include "TinyAlgebraStringCast.hpp"
+#include "TinyAlgebraExtensions.hpp"
 #include <iostream>
 #include <cstring>
 #include <fstream>
@@ -600,7 +600,7 @@ bool World::inRenderRange(const iVec3 center_block, const iVec3 position_block)
 }
 
 //==============================================================================
-void World::draw(const iVec3 new_center)
+void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 {
     Tasks & tasks = m_tasks[(m_back_buffer + 1) % 2];
     m_center[(m_back_buffer + 1) % 2] = new_center;
@@ -692,7 +692,7 @@ void World::draw(const iVec3 new_center)
     // render
     for (auto & m : tasks.render)
     {
-        if (inFrustum(/*m_position*/)) // TODO: frustum culling
+        if (meshInFrustum(frustum_planes, m.position * MESH_SIZES))
         {
             const auto & mesh_data = m_meshes[m.index];
 
@@ -744,9 +744,47 @@ void World::exitLoaderThread()
 }
 
 //==============================================================================
-bool World::inFrustum()
+bool World::meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset)
 {
-    // TODO: implement (needs AABB and frustum data passed in to compute)
+    const fVec3 from{ static_cast<float>(mesh_offset(0)), static_cast<float>(mesh_offset(1)), static_cast<float>(mesh_offset(2)) };
+    const fVec3 to{ from + fVec3{ static_cast<float>(MESH_SIZES(0)), static_cast<float>(MESH_SIZES(1)), static_cast<float>(MESH_SIZES(2)) } };
+
+    // TODO: there are faster algorithms
+    for (auto i = 0; i < 6; ++i)
+    {
+#if 0 // assume sphere ?
+        float side = planePointDistance(plane[i], point);
+        if (side < -Chunk::BOUNDING_SPHERE_RADIUS)
+        return false;
+#else
+        // Reset counters for corners in and out
+        int out = 0;
+        int in = 0;
+
+        // https://sites.google.com/site/letsmakeavoxelengine/home/frustum-culling
+
+        if (dot(planes[i], fVec4{ from(0), from(1), from(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ from(0), from(1), to(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ from(0), to(1), from(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ from(0), to(1), to(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ to(0), from(1), from(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ to(0), from(1), to(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ to(0), to(1), from(2), 1 }) < 0.0f) ++out;
+        else ++in;
+        if (dot(planes[i], fVec4{ to(0), to(1), to(2), 1 }) < 0.0f) ++out;
+        else ++in;
+
+        // If all corners are out
+        if (in == 0) return false;
+#endif
+    }
+
     return true;
 }
 
@@ -768,21 +806,19 @@ void World::saveChunkToRegion(const int chunk_index)
     uLong destination_length = compressBound(static_cast<uLong>(SOURCE_LENGTH)); // compressBound could be static
 
     // resize if potentially out of space
-    while (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
+    if (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
     {
         std::cout << "Reallocating region container." << std::endl;
-        // TODO: improve performance by not reallocating in loop but pre calculate the required new size
-        m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR;
+        m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : REGION_DATA_SIZE_FACTOR;
         m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
     }
 
     const auto * beginning_of_chunk = &getBlock(previous_chunk_position * CHUNK_SIZES); // address of first block
     Bytef * destination = m_regions[previous_region_index].data + m_regions[previous_region_index].size;
 
-    // TODO: checkout compress2 function
     // TODO: checkout other compression libraries that are faster
     // compress and save at once data to region
-    auto result = compress(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH));
+    auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH), Z_BEST_SPEED);
 
     assert(result == Z_OK && "Error compressing chunk.");
     assert(destination_length <= compressBound(static_cast<uLong>(SOURCE_LENGTH)) && "ZLib lied about the maximum possible size of compressed data.");
