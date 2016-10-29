@@ -249,6 +249,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
     iVec3 position;
     std::vector<Vertex> mesh;
 
+    // TODO: try to iterate over indices instead of coordinates and write functions indexPlus1x(), indexPlus1y(), indexPlus1z(), indexMinus1x(), indexMinus1y(),indexMinus1z()
+    // TODO: and see if it is faster
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
             for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
@@ -511,8 +513,7 @@ void World::meshLoader()
             const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZES);
             const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZES);
 
-            // TODO: store meshes for a longer time so they don't always need to be rebuild if they get out of range
-            if (!inRenderRange(center, mesh_center))
+            if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
             {
                 tasks.remove.push_back({ mesh_index });
                 m_loaded_meshes[i] = m_loaded_meshes[--count];
@@ -537,6 +538,11 @@ void World::meshLoader()
         // breadth first search finds all borders of loaded are and loads it
         while (!check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
         {
+#if 0
+            // for performance visualisation TODO: remove
+            if (check_list.empty() || check_list.size() % 50 == 0)
+                std::cout << "Chunk load queue size: " << check_list.size() << std::endl;
+#endif
             const auto current = check_list.front();
             check_list.pop();
             const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
@@ -566,7 +572,7 @@ void World::meshLoader()
                 };
 
                 for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
-                    if (inRenderRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2)))
+                    if (inRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
                         check_list.push(*pos);
             }
             else
@@ -591,12 +597,12 @@ void World::meshLoader()
 }
 
 //==============================================================================
-bool World::inRenderRange(const iVec3 center_block, const iVec3 position_block)
+bool World::inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance)
 {
     const iVec3 distances = position_block - center_block;
     const int square_distance = dot(distances, distances);
 
-    return square_distance <= SQUARE_RENDER_DISTANCE;
+    return square_distance <= square_max_distance;
 }
 
 //==============================================================================
@@ -692,6 +698,12 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     // render
     for (auto & m : tasks.render)
     {
+        // only render if not too far away
+        // TODO: could be combined with frustum culling (make far frustum sqrt(SQUARE_RENDER_DISTACE) away)
+        static_assert(!(MESH_SIZE_X % 2 || MESH_SIZE_Y % 2 || MESH_SIZE_Z % 2), "Assuming even mesh sizes");
+        if (!inRange(new_center, m.position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
+            continue;
+
         if (meshInFrustum(frustum_planes, m.position * MESH_SIZES))
         {
             const auto & mesh_data = m_meshes[m.index];

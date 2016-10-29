@@ -96,6 +96,7 @@ private:
     // only edit following line / no need to tinker with the rest
     static constexpr int
             RDISTANCE{ 60 },
+            REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
             MCSIZE{ 16 },
@@ -108,6 +109,7 @@ private:
 
     static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
     static_assert((RDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the render distance.");
+    static_assert((REDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the loaded distance.");
     static_assert(((MESH_BORDER_REQUIRED_SIZE * 2 + MSIZE) + (CSIZE - 1)) / CSIZE <= CCSIZE, "Chunk container size too small.");
 
     static constexpr int CHUNK_SIZE_X{ CSIZE }, CHUNK_SIZE_Y{ CSIZE }, CHUNK_SIZE_Z{ CSIZE };
@@ -118,6 +120,7 @@ private:
     static constexpr int REGION_SIZE_X{ RSIZE }, REGION_SIZE_Y{ RSIZE }, REGION_SIZE_Z{ RSIZE };
     static constexpr int REGION_CONTAINER_SIZE_X{ RCSIZE }, REGION_CONTAINER_SIZE_Y{ RCSIZE }, REGION_CONTAINER_SIZE_Z{ RCSIZE };
     static constexpr int RENDER_DISTANCE_X{ RDISTANCE }, RENDER_DISTANCE_Y{ RDISTANCE }, RENDER_DISTANCE_Z{ RDISTANCE };
+    static constexpr int REMOVE_DISTANCE_X{ REDISTANCE }, REMOVE_DISTANCE_Y{ REDISTANCE }, REMOVE_DISTANCE_Z{ REDISTANCE };
 
     static constexpr int CHUNK_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z };
     static constexpr int CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z };
@@ -128,6 +131,7 @@ private:
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
     static constexpr int SQUARE_RENDER_DISTANCE{ RENDER_DISTANCE_X * RENDER_DISTANCE_X + RENDER_DISTANCE_Y * RENDER_DISTANCE_Y + RENDER_DISTANCE_Z * RENDER_DISTANCE_Z };
+    static constexpr int SQUARE_REMOVE_DISTANCE{ REMOVE_DISTANCE_X * REMOVE_DISTANCE_X + REMOVE_DISTANCE_Y * REMOVE_DISTANCE_Y + REMOVE_DISTANCE_Z * REMOVE_DISTANCE_Z };
 
     static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
     static constexpr int SOURCE_LENGTH{ sizeof(Block) * CHUNK_SIZE };
@@ -198,7 +202,7 @@ private:
     void sineChunk(const iVec3 from_block);
     void debugChunk(const iVec3 from_block);
     void meshLoader();
-    bool inRenderRange(const iVec3 center_block, const iVec3 position_block);
+    bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
     void exitLoaderThread();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);

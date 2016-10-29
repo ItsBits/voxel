@@ -73,6 +73,7 @@ template<int S> bool any(const Vec<bool, S> & a) { bool r{ false }; for (int i =
 template<int W, int H> bool any(const Mat<bool, W, H> & a) { bool r{ false }; for (int i = 0; i < W * H; ++i) r = r || a(i); return r; }
 // true if ALL elements are true
 template<int S> bool all(const Vec<bool, S> & a) { bool r{ true }; for (int i = 0; i < S; ++i) r = r && a(i); return r; }
+template<int S> constexpr bool allC(const Vec<bool, S> & a) { bool r{ true }; for (int i = 0; i < S; ++i) r = r && a(i); return r; }
 template<int W, int H> bool all(const Mat<bool, W, H> & a) { bool r{ true }; for (int i = 0; i < W * H; ++i) r = r && a(i); return r; }
 
 //==============================================================================
