@@ -65,11 +65,14 @@ Voxel::Voxel(const char * location) :
 
         // std::string, GLsizei
         // Can't use emplace_back because there is no constructor defined for TextureArray::Source?
-        TEXT_TEXTURE_SOURCE.push_back(TextureArray::Source{ std::string{ pre + std::to_string(index) + post }, i });
+      TEXT_TEXTURE_SOURCE.push_back(TextureArray::Source{ std::string{ pre + std::to_string(index) + post }, i });
+      // TODO: remove
+      //TEXT_TEXTURE_SOURCE.push_back(TextureArray::Source{ std::string{ "assets/test256.png" }, i });
     }
 
 
   const GLsizei TEXT_TEXTURE_SIZE{ 8 };
+  //const GLsizei TEXT_TEXTURE_SIZE{ 256 };
 
   const Texture::Filtering TEXT_TEXTURE_FILTERING
           {
@@ -141,7 +144,7 @@ void Voxel::run()
         // render text
         m_text_shader.use();
         glUniform1f(m_text_ratio_location, static_cast<GLfloat>(m_window.aspectRatio()));
-        glUniform1f(m_font_size_location, 0.075f);
+        glUniform1f(m_font_size_location, 0.09f);
         m_screen_text.draw();
 
         // TODO: render sky box

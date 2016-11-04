@@ -40,8 +40,10 @@ Window::Window(const Hints & hints)
     glViewport(0, 0, fb_width, fb_height);
     glClearColor(hints.r, hints.g, hints.b, hints.a);
     glEnable(GL_DEPTH_TEST);
-    //glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
     glDepthFunc(GL_LEQUAL); // sky box
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 //==============================================================================
