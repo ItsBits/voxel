@@ -27,12 +27,64 @@ Voxel::Voxel(const char * location) :
                     { "shader/block.frag", GL_FRAGMENT_SHADER }
             }
     },
-    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, BLOCK_TEXTURE_FILTERING } // TODO: make dynamic texture unit allocation
+    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, BLOCK_TEXTURE_FILTERING }, // TODO: make dynamic texture unit allocation
+    m_text_shader{
+            {
+                    { "shader/text.vert", GL_VERTEX_SHADER },
+                    { "shader/text.geom", GL_GEOMETRY_SHADER },
+                    { "shader/text.frag", GL_FRAGMENT_SHADER }
+            }
+    }
 {
     m_block_shader.use();
     m_block_VP_matrix_location = glGetUniformLocation(m_block_shader.id(), "VP_matrix");
-    block_texture_array_location = glGetUniformLocation(m_block_shader.id(), "block_texture_array");
-    glUniform1i(block_texture_array_location, GL_TEXTURE0);
+    GLint block_texture_array_location = glGetUniformLocation(m_block_shader.id(), "block_texture_array");
+    glUniform1i(block_texture_array_location, 0);
+
+    m_text_shader.use();
+    m_text_ratio_location = glGetUniformLocation(m_text_shader.id(), "ratio");
+    m_font_size_location = glGetUniformLocation(m_text_shader.id(), "font_size");
+    GLint font_texture_array_location = glGetUniformLocation(m_text_shader.id(), "font_texture_array");
+    glUniform1i(font_texture_array_location, 1);
+
+// TODO: refactor past here
+
+    //================================================================================================
+    const std::string pre{ "assets/font/" };
+    const std::string post{ ".png" };
+
+    std::vector<TextureArray::Source> TEXT_TEXTURE_SOURCE;
+
+    for (auto i = 0; i < 128; i++)
+    {
+        assert(i >= 0 && i <= 127);
+
+        GLsizei index = i;
+        if (index < 33) index = 0; // No representation
+        else if (index > 96 && index < 123) index = i - 32; // Lower case = Upper case for now
+
+        // std::string, GLsizei
+        // Can't use emplace_back because there is no constructor defined for TextureArray::Source?
+        TEXT_TEXTURE_SOURCE.push_back(TextureArray::Source{ std::string{ pre + std::to_string(index) + post }, i });
+    }
+
+
+  const GLsizei TEXT_TEXTURE_SIZE{ 8 };
+
+  const Texture::Filtering TEXT_TEXTURE_FILTERING
+          {
+                  Texture::FarFiltering::LINEAR_TEXEL_LINEAR_MIPMAP,
+                  Texture::CloseFiltering::LINEAR_TEXEL, 0.0f
+          };
+
+  m_font_textures.reload(
+          TEXT_TEXTURE_SOURCE,
+          TEXT_TEXTURE_SIZE,
+          GL_TEXTURE1,
+          TEXT_TEXTURE_FILTERING
+  );
+
+  // TODO: https://lambdacube3d.wordpress.com/2014/11/12/playing-around-with-font-rendering/
 }
 
 //==============================================================================
@@ -59,6 +111,8 @@ void Voxel::run()
             std::cout << "FPS: " << frame_rate << std::endl;
             frame_counter = 0;
             last_fps_update = current_time;
+
+            m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)));
         }
         ++frame_counter;
 
@@ -75,15 +129,22 @@ void Voxel::run()
         m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
         m_camera.update(m_player.getPosition(), m_player.getYaw(), m_player.getPitch());
 
+        // render blocks
         m_block_shader.use();
         const glm::mat4 VP_matrix = m_camera.getViewProjectionMatrix();
         glUniformMatrix4fv(m_block_VP_matrix_location, 1, GL_FALSE, glm::value_ptr(VP_matrix));
-        m_block_textures.bind(GL_TEXTURE0);
-        // TODO: call m_world.draw(center, frustum)
         const auto center = m_player.getPosition();
         fVec4 frustum_planes[6];
         matrixToFrustums(VP_matrix, frustum_planes);
         m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }), frustum_planes);
+
+        // render text
+        m_text_shader.use();
+        glUniform1f(m_text_ratio_location, static_cast<GLfloat>(m_window.aspectRatio()));
+        glUniform1f(m_font_size_location, 0.075f);
+        m_screen_text.draw();
+
+        // TODO: render sky box
 
         m_window.swapResizeClearBuffer();
 
@@ -92,6 +153,9 @@ void Voxel::run()
         const auto sleep_time = 1.0 / TARGET_FRAME_RATE - (time_after_render - current_time);
         if (sleep_time > 0.0)
             std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int64_t>(sleep_time * 1000.0)));
+
+        { const GLenum r = glGetError(); assert(r == GL_NO_ERROR); }
+
     }
 
     m_window.unlockMouse();

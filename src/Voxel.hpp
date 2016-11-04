@@ -6,6 +6,7 @@
 #include "Camera.hpp"
 #include "Player.hpp"
 #include "TextureArray.hpp"
+#include "Text.hpp"
 
 //==============================================================================
 class Voxel
@@ -23,7 +24,12 @@ private:
     GLint m_block_VP_matrix_location;
     Player m_player;
     TextureArray m_block_textures;
-    GLint block_texture_array_location;
+
+    Shader m_text_shader;
+    Text m_screen_text;
+    GLint m_text_ratio_location;
+    GLint m_font_size_location;
+    TextureArray m_font_textures;
 
     static constexpr double FRAME_RATE_UPDATE_RATE{ 0.3 };
     static constexpr double TARGET_FRAME_RATE{ 70.0 }; // TODO: figure out why low value < 50.0 makes the keyboard feel sticky
