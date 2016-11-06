@@ -27,7 +27,7 @@ Voxel::Voxel(const char * location) :
                     { "shader/block.frag", GL_FRAGMENT_SHADER }
             }
     },
-    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, BLOCK_TEXTURE_FILTERING }, // TODO: make dynamic texture unit allocation
+    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, BLOCK_TEXTURE_FILTERING, GL_CLAMP_TO_EDGE }, // TODO: make dynamic texture unit allocation
     m_text_shader{
             {
                     { "shader/text.vert", GL_VERTEX_SHADER },
@@ -50,7 +50,7 @@ Voxel::Voxel(const char * location) :
 // TODO: refactor past here
 
     //================================================================================================
-    const std::string pre{ "assets/font/" };
+    const std::string pre{ "assets/dejavu_sans_mono_stretched_and_my/" };
     const std::string post{ ".png" };
 
     std::vector<TextureArray::Source> TEXT_TEXTURE_SOURCE;
@@ -60,18 +60,15 @@ Voxel::Voxel(const char * location) :
         assert(i >= 0 && i <= 127);
 
         GLsizei index = i;
-        if (index < 33) index = 0; // No representation
-        else if (index > 96 && index < 123) index = i - 32; // Lower case = Upper case for now
-
+        if (index < 32 || index == 127) index = 0; // No representation
         // std::string, GLsizei
         // Can't use emplace_back because there is no constructor defined for TextureArray::Source?
       TEXT_TEXTURE_SOURCE.push_back(TextureArray::Source{ std::string{ pre + std::to_string(index) + post }, i });
-      // TODO: remove
-      //TEXT_TEXTURE_SOURCE.push_back(TextureArray::Source{ std::string{ "assets/test256.png" }, i });
     }
 
 
-  const GLsizei TEXT_TEXTURE_SIZE{ 8 };
+  //const GLsizei TEXT_TEXTURE_SIZE{ 8 };
+  const GLsizei TEXT_TEXTURE_SIZE{ 16 };
   //const GLsizei TEXT_TEXTURE_SIZE{ 256 };
 
   const Texture::Filtering TEXT_TEXTURE_FILTERING
@@ -84,7 +81,8 @@ Voxel::Voxel(const char * location) :
           TEXT_TEXTURE_SOURCE,
           TEXT_TEXTURE_SIZE,
           GL_TEXTURE1,
-          TEXT_TEXTURE_FILTERING
+          TEXT_TEXTURE_FILTERING,
+          GL_CLAMP_TO_EDGE
   );
 
   // TODO: https://lambdacube3d.wordpress.com/2014/11/12/playing-around-with-font-rendering/
@@ -115,7 +113,16 @@ void Voxel::run()
             frame_counter = 0;
             last_fps_update = current_time;
 
-            m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)));
+#if 1
+            m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)) + "\n");
+#else // demo
+            m_screen_text.update(
+                    "!\"#$%&\\'()*+,-./:;<=>?@[]^_`{|}~\n"
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ\n"
+                    "abcdefghijklmnopqrstuvwxyz\n"
+                    "0123456789"
+            );
+#endif
         }
         ++frame_counter;
 
@@ -144,7 +151,7 @@ void Voxel::run()
         // render text
         m_text_shader.use();
         glUniform1f(m_text_ratio_location, static_cast<GLfloat>(m_window.aspectRatio()));
-        glUniform1f(m_font_size_location, 0.09f);
+        glUniform1f(m_font_size_location, 0.07f);
         m_screen_text.draw();
 
         // TODO: render sky box

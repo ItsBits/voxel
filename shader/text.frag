@@ -8,19 +8,21 @@ out vec4 output_color;
 
 void main()
 {
-  // TODO: feed in signed distance field textures
-  
-  vec4 color = texture(font_texture_array, texture_coord);
+  float color = 1.0f - texture(font_texture_array, texture_coord).r; // because
 
-  if (color.a > 0.55f)
-    color = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-  else if (color.a < 0.45f)
-    color = vec4(1.0f, 1.0f, 1.0f, 0.6f);
+  const float center = 0.52f;
+  const float range = 0.05f;
+
+  if (color > center + range / 2.0f)
+    color = 1.0f;
+  else if (color < center - range / 2.0f)
+    color = 0.0f;
   else
   {
-    vec3 col = 1.0f - vec3((color.r - 0.45f) * 20.0f);
-    color = vec4(col, 0.6f);
+    color = color - (center - range / 2.0f);
+    color = color * 1.0f / range;
   }
 
-  output_color = color;
+  float alpha = color < center ? 0.6f : 1.0f;
+  output_color = vec4(vec3(1.0f - color), alpha);
 }

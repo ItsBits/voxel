@@ -14,7 +14,8 @@ TextureArray::TextureArray(
   const std::vector<TextureArray::Source>& texture_source,
   GLsizei texture_size,
   GLenum texture_unit,
-  Texture::Filtering filtering
+  Texture::Filtering filtering,
+  GLint wrapping
 )
 {
   // Does texture unit exist

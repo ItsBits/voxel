@@ -19,7 +19,8 @@ public:
     const std::vector<TextureArray::Source> & texture_source,
     GLsizei texture_size,
     GLenum texture_unit,
-    Texture::Filtering filtering
+    Texture::Filtering filtering,
+    GLint wrapping
   );
 
   // Placement constructor
@@ -27,11 +28,12 @@ public:
     const std::vector<TextureArray::Source> & texture_source,
     GLsizei texture_size,
     GLenum texture_unit,
-    Texture::Filtering filtering
+    Texture::Filtering filtering,
+    GLint wrapping
   )
   {
     this->~TextureArray();
-    new (this) TextureArray(texture_source, texture_size, texture_unit, filtering);
+    new (this) TextureArray(texture_source, texture_size, texture_unit, filtering, wrapping);
   }
   
   // Default constructor contains no OpenGL texture
