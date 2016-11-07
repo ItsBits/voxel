@@ -504,9 +504,6 @@ void World::meshLoader()
 
         for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
-        // TODO: I suspect that the following loop and the fact that the FIFO Queue for searching for chunks to load
-        // TODO: is causing many performance issues because of a lot of work has to be "remade"
-
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
         Debug::print(__func__, "Loaded meshes count: ", count);

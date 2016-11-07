@@ -19,7 +19,7 @@ static const Texture::Filtering BLOCK_TEXTURE_FILTERING
 
 //==============================================================================
 Voxel::Voxel(const char * location) :
-    m_window{ Window::Hints{ 3, 1, 0, nullptr, location, 0.9f, 0.9f, 0.6f, 1.0f, false, 960, 540 } },
+    m_window{ Window::Hints{ 3, 1, 1, nullptr, location, 0.9f, 0.9f, 0.6f, 1.0f, false, 960, 540 } },
     m_world{ location },
     m_block_shader{
             {
