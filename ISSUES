@@ -1,8 +1,12 @@
-* at low frame rates, keyboard feels unresponsive
-* chunk loading feels unresponsive when moving fast
-* frustum culling sometimes removes too many chunks
+Issues:
+* at low frame rates, keyboard feels unresponsive* frustum culling sometimes removes too many chunks
 
 Verify if solved:
 * sometimes it appears that there is a deadlock when exiting loader thread
+    (solution: introduce loader thread finished flag)
+* chunk loading feels unresponsive when moving fast
+    (observation: if player moves out of loaded range, incorrect chunks are marked for removal, this might explain remove assert VAO != 0 failure)
+    (observation 2: loader tells renderer to remove chunks with meshes with size 0 and there is a lot of then, m_loaded_meshes is problematic because it stores all (also 0 size meshes))
+    solution: use the goddamn member "empty" of m_loaded_meshes to check if mesh really needs to be removed
 
 Solved:

@@ -95,16 +95,16 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 60 },
+            RDISTANCE{ 100 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
-            MCSIZE{ 16 },
+            MCSIZE{ 60 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
             MOFF{ MESH_BORDER_REQUIRED_SIZE }, // or maybe do chunk_size / 2
             //MOFF{ 0 },
             RSIZE{ 512 / CSIZE },
-            CCSIZE{ 6 },
+            CCSIZE{ 16 },
             RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3 }; // round up + 2 instead of + 3 would be prettier
 
     static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
@@ -142,7 +142,7 @@ private:
     static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
     static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * MSIZE };
-    static constexpr int MESH_COUNT_NEEDED_FOR_RESET{ 10 };
+    static constexpr int MESH_COUNT_NEEDED_FOR_RESET{ 16 };
 
     static constexpr iVec3 CHUNK_SIZES{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
     static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };

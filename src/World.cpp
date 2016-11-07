@@ -492,6 +492,8 @@ void World::meshLoader()
 {
     while (!m_quit)
     {
+        std::cout << "New loader thread loop.\n";
+
         Tasks & tasks = m_tasks[m_back_buffer];
         const iVec3 center = m_center[m_back_buffer];
 
@@ -507,6 +509,7 @@ void World::meshLoader()
 
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
+        std::cout << "Loaded meshes count: " << count << std::endl;
         for (std::size_t i = 0; i < count;)
         {
             const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
@@ -516,7 +519,8 @@ void World::meshLoader()
 
             if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
             {
-                tasks.remove.push_back({ mesh_index });
+                if (!m_loaded_meshes[i].empty)
+                    tasks.remove.push_back({ mesh_index });
                 m_loaded_meshes[i] = m_loaded_meshes[--count];
             }
             else
@@ -539,11 +543,6 @@ void World::meshLoader()
         // breadth first search finds all borders of loaded are and loads it
         while (!check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
         {
-#if 0
-            // for performance visualisation TODO: remove
-            if (check_list.empty() || check_list.size() % 50 == 0)
-                std::cout << "Chunk load queue size: " << check_list.size() << std::endl;
-#endif
             const auto current = check_list.front();
             check_list.pop();
             const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
@@ -585,6 +584,9 @@ void World::meshLoader()
 
         if (m_moved_far) std::cout << "Resetting because moved far." << std::endl;
 
+        std::cout << "Render: " << tasks.render.size() << std::endl;
+        std::cout << "Upload: " << tasks.upload.size() << std::endl;
+        std::cout << "Remove: " << tasks.remove.size() << std::endl;
         {
             // request task buffer swap wait for it
             std::unique_lock<std::mutex> lock{ m_lock };
@@ -623,24 +625,22 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     // remove
     if (!tasks.remove.empty())
     {
-      const Remove & task = tasks.remove.back();
+        const Remove & task = tasks.remove.back();
 
-      auto & mesh_data = m_meshes[task.index];
+        auto & mesh_data = m_meshes[task.index];
 
-      // TODO: figure out why possibly invalid indexes are given by loader and reimplement the commented out line instead of buffer delete
-#if 0
-        assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
-        m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
+#if 1
+      assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
+      m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
 #else
-      glDeleteBuffers(1, &mesh_data.VBO);
-      glDeleteVertexArrays(1, &mesh_data.VAO);
+        glDeleteBuffers(1, &mesh_data.VBO);
+        glDeleteVertexArrays(1, &mesh_data.VAO);
 #endif
-      mesh_data.VAO = 0;
-      mesh_data.VBO = 0;
 
-      // TODO: resize buffer to 0 to save memory (not relevant at the moment because buffers are deleted)
+        mesh_data.VAO = 0;
+        mesh_data.VBO = 0;
 
-      tasks.remove.pop_back();
+        tasks.remove.pop_back();
     }
 
     // upload only after nothing left to remove
