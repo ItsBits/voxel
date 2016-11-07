@@ -189,6 +189,7 @@ private:
     bool m_swap;
     std::atomic_bool m_loader_waiting;
     std::atomic_bool m_moved_far;
+    std::atomic_bool m_loader_finished;
 
     //==============================================================================
     // functions

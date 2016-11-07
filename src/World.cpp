@@ -29,7 +29,8 @@ World::World(const char * location) :
         m_quit{ false },
         m_swap{ false },
         m_loader_waiting{ false },
-        m_moved_far{ false }
+        m_moved_far{ false },
+        m_loader_finished{ false }
 {
     for (auto & i : m_chunk_positions) i = { 0, 0, 0 };
     for (auto & i : m_mesh_positions) i = { 0, 0, 0 };
@@ -594,6 +595,9 @@ void World::meshLoader()
 
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
+
+    std::cout << "Exited loader thread.\n";
+    m_loader_finished = true;
 }
 
 //==============================================================================
@@ -743,10 +747,13 @@ void World::exitLoaderThread()
     m_quit = true;
     while (true)
     {
-        if (m_loader_waiting)
         {
-            m_cond_var.notify_all();
-            break;
+            std::unique_lock<std::mutex> lock{ m_lock };
+            if (m_loader_waiting || m_loader_finished)
+            {
+                m_cond_var.notify_all();
+                break;
+            }
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
