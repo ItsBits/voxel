@@ -32,6 +32,6 @@ private:
     TextureArray m_font_textures;
 
     static constexpr double FRAME_RATE_UPDATE_RATE{ 1.0 };
-    static constexpr double TARGET_FRAME_RATE{ 70.0 }; // TODO: figure out why low value < 50.0 makes the keyboard feel sticky
+    static constexpr double TARGET_FRAME_RATE{ 80.0 }; // TODO: figure out why low value < 50.0 makes the keyboard feel sticky
 
 };

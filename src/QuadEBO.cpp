@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <cassert>
-#include <iostream>
+#include "Debug.hpp"
 
 //==============================================================================
 GLuint QuadEBO::s_EBO{ 0 };
@@ -26,8 +26,7 @@ void QuadEBO::resize(GLsizeiptr new_element_count)
   // increase by a fixed multiple of 6 amount
   new_element_count += 2 * 6;
 
-  //std::string{ "Resizing QuadVBO from " + std::to_string(s_indices) + " to " + std::to_string(new_element_count) + "\n" };
-  std::cout << "Resizing QuadVBO from " + std::to_string(s_indices) + " to " + std::to_string(new_element_count) + "\n";
+  Debug::print(__func__, "Resizing QuadVBO from ", std::to_string(s_indices), " to ", std::to_string(new_element_count));
 
   std::unique_ptr<GLuint[]> indices{ std::make_unique<GLuint[]>(new_element_count) };
 

@@ -1,5 +1,6 @@
 Issues:
 * at low frame rates, keyboard feels unresponsive* frustum culling sometimes removes too many chunks
+    I assume it's because of GLFW being laggy. Slow refresh rate seem to register a key release + key press at key release
 
 Verify if solved:
 * sometimes it appears that there is a deadlock when exiting loader thread

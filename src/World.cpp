@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cmath>
 #include "TinyAlgebraExtensions.hpp"
-#include <iostream>
+#include "Debug.hpp"
 #include <cstring>
 #include <fstream>
 
@@ -58,11 +58,11 @@ World::World(const char * location) :
 //==============================================================================
 World::~World()
 {
-    std::cout << "Exiting loader thread." << std::endl;
+    Debug::print(__func__, "Exiting loader thread.");
 
     exitLoaderThread();
 
-    std::cout << "Saving chunks." << std::endl;
+    Debug::print(__func__, "Saving chunks.");
 
     // check all chunks if they need to be saved and save them
     for (auto chunk_index = 0; chunk_index < CHUNK_CONTAINER_SIZE; ++chunk_index)
@@ -73,7 +73,7 @@ World::~World()
     for (auto region_index = 0; region_index < REGION_CONTAINER_SIZE; ++region_index)
         saveRegionToDrive(region_index);
 
-    std::cout << "Cleaning up memory." << std::endl;
+    Debug::print(__func__, "Cleaning up memory.");
 
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
@@ -158,7 +158,7 @@ void World::loadRegion(const iVec3 region_position)
     if (in_file.good())
     {
         // load region from drive because it exists
-        std::cout << "Loading region " << toString(region_position) << std::endl;
+        Debug::print(__func__, "Loading region ", toString(region_position));
 
         auto & region = m_regions[region_index];
         region.position = region_position;
@@ -492,7 +492,7 @@ void World::meshLoader()
 {
     while (!m_quit)
     {
-        std::cout << "New loader thread loop.\n";
+        Debug::print(__func__, "New loader thread loop.");
 
         Tasks & tasks = m_tasks[m_back_buffer];
         const iVec3 center = m_center[m_back_buffer];
@@ -509,7 +509,7 @@ void World::meshLoader()
 
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
-        std::cout << "Loaded meshes count: " << count << std::endl;
+        Debug::print(__func__, "Loaded meshes count: ", count);
         for (std::size_t i = 0; i < count;)
         {
             const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
@@ -582,11 +582,12 @@ void World::meshLoader()
             m_mesh_loaded[current_index] = Status::CHECKED;
         }
 
-        if (m_moved_far) std::cout << "Resetting because moved far." << std::endl;
+        if (m_moved_far)
+            Debug::print(__func__, "Resetting because moved far.");
 
-        std::cout << "Render: " << tasks.render.size() << std::endl;
-        std::cout << "Upload: " << tasks.upload.size() << std::endl;
-        std::cout << "Remove: " << tasks.remove.size() << std::endl;
+        Debug::print(__func__, "Render: ", tasks.render.size());
+        Debug::print(__func__, "Upload: ", tasks.upload.size());
+        Debug::print(__func__, "Remove: ", tasks.remove.size());
         {
             // request task buffer swap wait for it
             std::unique_lock<std::mutex> lock{ m_lock };
@@ -598,7 +599,7 @@ void World::meshLoader()
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
-    std::cout << "Exited loader thread.\n";
+    Debug::print(__func__, "Exited loader thread.");
     m_loader_finished = true;
 }
 
@@ -827,7 +828,7 @@ void World::saveChunkToRegion(const int chunk_index)
     // resize if potentially out of space
     if (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
     {
-        std::cout << "Reallocating region container." << std::endl;
+        Debug::print(__func__, "Reallocating region container.");
         m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : REGION_DATA_SIZE_FACTOR;
         m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
     }
@@ -860,7 +861,7 @@ void World::saveRegionToDrive(const int region_index)
         )
     {
         // save old region
-        std::cout << "Saving region " << toString(position) << std::endl;
+        Debug::print(__func__, "Saving region ", toString(position));
         assert(m_regions[region_index].data != nullptr && "No idea why this can happen.");
 
         std::string file_name = WORLD_ROOT + toString(position);

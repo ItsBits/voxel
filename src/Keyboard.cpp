@@ -1,4 +1,5 @@
 #include "Keyboard.hpp"
+#include "Debug.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>
 
@@ -8,6 +9,9 @@ Keyboard::Status Keyboard::s_key[Keyboard::KEY_COUNT]{};
 //==============================================================================
 void Keyboard::setKey(GLFWwindow * window, int key, int scancode, int action, int mods)
 {
+    if (key == GLFW_KEY_SPACE)
+        Debug::printAlways(__func__, action);
+
     // if unknown key do nothing
     if(key < 0 || key > Keyboard::KEY_COUNT - 1)
         return;

@@ -1,9 +1,9 @@
 #include "Voxel.hpp"
-#include <iostream>
+#include "Debug.hpp"
 
 int main()
 {
-    std::cout << "Size of class World is " << sizeof(World) / (1024 * 1024) << " MB." << std::endl;
+    Debug::print(__func__, "Size of class World is ", sizeof(World) / (1024 * 1024), " MB.");
 
     const char * save_data_location{ "world/" };
 

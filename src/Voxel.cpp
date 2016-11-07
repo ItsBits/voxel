@@ -1,9 +1,9 @@
 #include "Voxel.hpp"
 #include <GLFW/glfw3.h>
-#include <iostream>
 #include <glm/gtc/type_ptr.hpp>
 #include "Mouse.hpp"
 #include "TinyAlgebraExtensions.hpp"
+#include "Debug.hpp"
 
 //==============================================================================
 static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
@@ -109,7 +109,7 @@ void Voxel::run()
         if (current_time - last_fps_update > 1.0 / FRAME_RATE_UPDATE_RATE)
         {
             const double frame_rate = static_cast<double>(frame_counter) / (current_time - last_fps_update);
-            std::cout << "FPS: " << frame_rate << std::endl;
+            Debug::print(__func__, "FPS: ", frame_rate);
             frame_counter = 0;
             last_fps_update = current_time;
 
