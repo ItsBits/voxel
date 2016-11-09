@@ -5,6 +5,7 @@
 #include <cmath>
 #include "TinyAlgebraExtensions.hpp"
 #include "Debug.hpp"
+#include "Profiler.hpp"
 #include <cstring>
 #include <fstream>
 
@@ -123,19 +124,24 @@ Block & World::getBlock(const iVec3 block_position)
 }
 
 //==============================================================================
-void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
+int World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 {
     const auto chunk_position_from = floorDiv(from_block, CHUNK_SIZES);
     const auto chunk_position_to = floorDiv(to_block - 1, CHUNK_SIZES);
 
     iVec3 it;
 
+    int chunks_loaded = 0;
+
     for (it(2) = chunk_position_from(2); it(2) <= chunk_position_to(2); ++it(2))
         for (it(1) = chunk_position_from(1); it(1) <= chunk_position_to(1); ++it(1))
             for (it(0) = chunk_position_from(0); it(0) <= chunk_position_to(0); ++it(0))
             {
-                loadChunk(it);
+                chunks_loaded += loadChunk(it);
             }
+
+    Profiler::add(Profiler::Task::ChunksLoaded, chunks_loaded);
+    return chunks_loaded;
 }
 
 //==============================================================================
@@ -185,7 +191,7 @@ void World::loadRegion(const iVec3 region_position)
 }
 
 //==============================================================================
-void World::loadChunk(const iVec3 chunk_position)
+int World::loadChunk(const iVec3 chunk_position)
 {
     const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZES);
 
@@ -193,7 +199,7 @@ void World::loadChunk(const iVec3 chunk_position)
 
     // if already loaded
     if (all(m_chunk_positions[chunk_index] == chunk_position))
-      return;
+      return 0;
 
     const auto region_position = floorDiv(chunk_position, REGION_SIZES);
     const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZES);
@@ -238,6 +244,8 @@ void World::loadChunk(const iVec3 chunk_position)
         m_chunk_positions[chunk_index] = chunk_position;
         m_needs_save[chunk_index] = false;
     }
+
+    return 1;
 }
 
 //==============================================================================
@@ -245,7 +253,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
 {
     const auto f = from_block - MESH_BORDER_REQUIRED_SIZE;
     const auto t = to_block + MESH_BORDER_REQUIRED_SIZE;
-    loadChunkRange(f, t);
+
+    Profiler::add(Profiler::Task::MeshesGenerated, 1);
 
     iVec3 position;
     std::vector<Vertex> mesh;
@@ -492,6 +501,7 @@ void World::meshLoader()
 {
     while (!m_quit)
     {
+        Profiler::resetAll();
         Debug::print(__func__, "New loader thread loop.");
 
         Tasks & tasks = m_tasks[m_back_buffer];
@@ -553,6 +563,8 @@ void World::meshLoader()
             {
                 const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
                 const auto to_block = from_block + MESH_SIZES;
+                // TODO: paralelize next two lines?
+                loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
                 const auto mesh = generateMesh(from_block, to_block);
 
                 if (mesh.size() > 0) tasks.upload.push_back({ current_index, current, mesh });
@@ -593,6 +605,14 @@ void World::meshLoader()
             m_swap = false;
         }
 
+        // TODO: increase the ratio by generating meshes in bulk
+        const int loaded_c = Profiler::get(Profiler::Task::ChunksLoaded);
+        const int loaded_m = Profiler::get(Profiler::Task::MeshesGenerated);
+        Debug::printAlways(__func__,
+                     "Chunks loaded: ", loaded_c,
+                     " Meshes generated: ", loaded_m,
+                     " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
+        );
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 

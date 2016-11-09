@@ -4,6 +4,7 @@
 #include "Mouse.hpp"
 #include "TinyAlgebraExtensions.hpp"
 #include "Debug.hpp"
+#include "Profiler.hpp"
 
 //==============================================================================
 static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE

@@ -101,7 +101,7 @@ private:
             MSIZE{ 16 },
             MCSIZE{ 60 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
-            MOFF{ MESH_BORDER_REQUIRED_SIZE }, // or maybe do chunk_size / 2
+            MOFF{ MESH_BORDER_REQUIRED_SIZE + 3 }, // or maybe do chunk_size / 2
             //MOFF{ 0 },
             RSIZE{ 512 / CSIZE },
             CCSIZE{ 16 },
@@ -195,8 +195,8 @@ private:
     // functions
 
     Block & getBlock(const iVec3 block_position);
-    void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
-    void loadChunk(const iVec3 chunk_position);
+    int loadChunkRange(const iVec3 from_block, const iVec3 to_block);
+    int loadChunk(const iVec3 chunk_position);
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
     static unsigned char vertAO(const bool side_a, const bool side_b, const bool corner);
     void generateChunk(const iVec3 from_block);
