@@ -1,5 +1,5 @@
 Issues:
-* at low frame rates, keyboard feels unresponsive* frustum culling sometimes removes too many chunks
+* at low frame rates, keyboard feels unresponsive
     I assume it's because of GLFW being laggy. Slow refresh rate seem to register a key release + key press at key release
 
 Verify if solved:
@@ -9,5 +9,6 @@ Verify if solved:
     (observation: if player moves out of loaded range, incorrect chunks are marked for removal, this might explain remove assert VAO != 0 failure)
     (observation 2: loader tells renderer to remove chunks with meshes with size 0 and there is a lot of then, m_loaded_meshes is problematic because it stores all (also 0 size meshes))
     solution: use the goddamn member "empty" of m_loaded_meshes to check if mesh really needs to be removed
+* frustum culling sometimes removes too many chunks
 
 Solved:

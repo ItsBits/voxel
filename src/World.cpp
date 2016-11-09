@@ -726,7 +726,7 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
         if (!inRange(new_center, m.position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
             continue;
 
-        if (meshInFrustum(frustum_planes, m.position * MESH_SIZES))
+        if (meshInFrustum(frustum_planes, m.position * MESH_SIZES + MESH_OFFSETS))
         {
             const auto & mesh_data = m_meshes[m.index];
 
