@@ -43,6 +43,7 @@
  */
 
 
+#include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
 #include "Block.hpp"
 #include <string>
@@ -73,13 +74,19 @@ struct ChunkMeta { int size; int offset; };
 
 enum class Status : char { UNLOADED, LOADED, CHECKED };
 
+/*
+ * TODO: remove the struct Tasks
+ * TODO: replace with command queue (ring buffer)
+ *
+ */
 struct Tasks
 {
-    // TODO: replace by array and size counter if max needed size is not too large
     std::vector<Remove> remove;
     std::vector<Render> render;
     std::vector<Upload> upload;
 };
+
+struct MeshWPos { Mesh mesh; iVec3 position; };
 
 //==============================================================================
 class World
@@ -176,8 +183,13 @@ private:
     } m_regions[REGION_CONTAINER_SIZE];
 
     // renderer thread data
-    Mesh m_meshes[MESH_CONTAINER_SIZE]; // kind of mirrors m_mesh_positions
     std::stack<UnusedBuffer> m_unused_buffers;
+#define NEW_M
+#ifdef NEW_M
+    SparseMap<MeshWPos, MESH_CONTAINER_SIZE> m_meshes;
+#else
+    Mesh m_meshes_old[MESH_CONTAINER_SIZE]; // kind of mirrors m_mesh_positions
+#endif
 
     // shared / synchronization data
     Tasks m_tasks[2]; // double buffering

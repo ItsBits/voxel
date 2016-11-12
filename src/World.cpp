@@ -39,8 +39,11 @@ World::World(const char * location) :
     m_mesh_positions[0] = { 1, 0, 0 };
 
     for (auto & i : m_blocks) i = { 0 };
-    for (auto & i : m_meshes) i = { 0, 0, 0 };
-
+#ifdef NEW_M
+    // default construction of m_meshes
+#else
+    for (auto & i : m_meshes_old) i = { 0, 0, 0 };
+#endif
     for (auto & i : m_regions)
     {
         i.position = { 0, 0, 0 };
@@ -79,10 +82,28 @@ World::~World()
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
 
+#ifdef NEW_M
+    // delete vertex and vao buffers from active meshes
+    const auto * i = m_meshes.begin();
+    const auto * end = m_meshes.end();
+    for (; i != end; ++i)
+    {
+        auto & mesh_data = i->data.mesh;
+
+        // only both equal to 0 or both not equal to 0 is valid
+        if (mesh_data.VAO == 0 && mesh_data.VBO == 0) continue;
+        assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "Active buffers should not be 0.");
+
+        glDeleteVertexArrays(1, &mesh_data.VAO);
+        glDeleteBuffers(1, &mesh_data.VBO);
+
+        m_meshes.reset();
+    }
+#else
     // delete vertex and vao buffers from active meshes
     for (auto mesh_index = 0; mesh_index < MESH_CONTAINER_SIZE; ++mesh_index)
     {
-        auto & mesh_data = m_meshes[mesh_index];
+        auto & mesh_data = m_meshes_old[mesh_index];
 
         // only both equal to 0 or both not equal to 0 is valid
         if (mesh_data.VAO == 0 && mesh_data.VBO == 0) continue;
@@ -95,6 +116,7 @@ World::~World()
         mesh_data.VBO = 0;
         mesh_data.size = 0;
     }
+#endif
 
     // delete vertex and vao buffers from unused meshes
     while (!m_unused_buffers.empty())
@@ -645,18 +667,26 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     {
         const Remove & task = tasks.remove.back();
 
-        auto & mesh_data = m_meshes[task.index];
+#ifdef NEW_M
+        const auto & mesh_data = m_meshes.get(task.index)->data.mesh;
+#else
+        auto & mesh_data = m_meshes_old[task.index];
+#endif
 
 #if 1
-      assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
-      m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
+        assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
+        m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
 #else
         glDeleteBuffers(1, &mesh_data.VBO);
         glDeleteVertexArrays(1, &mesh_data.VAO);
 #endif
 
+#ifdef NEW_M
+        m_meshes.del(task.index);
+#else
         mesh_data.VAO = 0;
         mesh_data.VBO = 0;
+#endif
 
         tasks.remove.pop_back();
     }
@@ -703,21 +733,50 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
         // upload mesh
         glBufferData(GL_ARRAY_BUFFER, task.mesh.size() * sizeof(task.mesh[0]), task.mesh.data(), GL_STATIC_DRAW);
 
-        assert(m_meshes[task.index].VAO == 0 && m_meshes[task.index].VBO == 0 && "Buffers not cleaned up.");
-        m_meshes[task.index].VAO = VAO;
-        m_meshes[task.index].VBO = VBO;
+        // fast multiply by 1.5
+        const int EBO_size = static_cast<int>((task.mesh.size() >> 1) + task.mesh.size());
+        QuadEBO::resize(EBO_size);
+
+#ifdef NEW_M
+        m_meshes.add(task.index, { { VAO, VBO, EBO_size }, task.position });
+#else
+        assert(m_meshes_old[task.index].VAO == 0 && m_meshes_old[task.index].VBO == 0 && "Buffers not cleaned up.");
+        m_meshes_old[task.index].VAO = VAO;
+        m_meshes_old[task.index].VBO = VBO;
 
         tasks.render.push_back({ task.index, task.position });
 
-        // fast multiply by 1.5
-        const int EBO_size = static_cast<int>((task.mesh.size() >> 1) + task.mesh.size());
-        m_meshes[task.index].size = EBO_size;
-        QuadEBO::resize(EBO_size);
+        m_meshes_old[task.index].size = EBO_size;
 
+#endif
         tasks.upload.pop_back();
     }
 
     // render
+#ifdef NEW_M
+    const auto * i = m_meshes.begin();
+    const auto * end = m_meshes.end();
+    for (; i != end; ++i)
+    {
+        // only render if not too far away
+        // TODO: could be combined with frustum culling (make far frustum sqrt(SQUARE_RENDER_DISTACE) away)
+        static_assert(!(MESH_SIZE_X % 2 || MESH_SIZE_Y % 2 || MESH_SIZE_Z % 2), "Assuming even mesh sizes");
+        if (!inRange(new_center, i->data.position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
+            continue;
+
+        if (meshInFrustum(frustum_planes, i->data.position * MESH_SIZES + MESH_OFFSETS))
+        {
+            const auto & mesh_data = i->data.mesh;
+
+            assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
+            assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and VBO not loaded.");
+
+            glBindVertexArray(mesh_data.VAO);
+            glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
+            glBindVertexArray(0);
+        }
+    }
+#else
     for (auto & m : tasks.render)
     {
         // only render if not too far away
@@ -728,7 +787,7 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 
         if (meshInFrustum(frustum_planes, m.position * MESH_SIZES + MESH_OFFSETS))
         {
-            const auto & mesh_data = m_meshes[m.index];
+            const auto & mesh_data = m_meshes_old[m.index];
 
             assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
             assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and VBO not loaded.");
@@ -737,8 +796,8 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
             glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
             glBindVertexArray(0);
         }
-
     }
+#endif
 
     // swap task buffers if loader ready
     if (tasks.upload.empty() && tasks.remove.empty())
