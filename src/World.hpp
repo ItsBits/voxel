@@ -102,7 +102,7 @@ struct MeshWPos { Mesh mesh; iVec3 position; };
 class World
 {
 public:
-    World(const char * location);
+    World();
     ~World();
     void draw(const iVec3 new_center, const fVec4 frustum_planes[6]);
 
@@ -121,8 +121,10 @@ private:
             MOFF{ MESH_BORDER_REQUIRED_SIZE + 3 }, // or maybe do chunk_size / 2
             //MOFF{ 0 },
             RSIZE{ 512 / CSIZE },
+            MRSIZE{ RSIZE },
             CCSIZE{ 16 },
-            RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3 }; // round up + 2 instead of + 3 would be prettier
+            RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3 }, // round up + 2 instead of + 3 would be prettier
+            MRCSIZE{ RCSIZE };
 
     static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
     static_assert((RDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the render distance.");
@@ -135,15 +137,19 @@ private:
     static constexpr int MESH_CONTAINER_SIZE_X{ MCSIZE }, MESH_CONTAINER_SIZE_Y{ MCSIZE }, MESH_CONTAINER_SIZE_Z{ MCSIZE };
     static constexpr int MESH_OFFSET_X{ MOFF }, MESH_OFFSET_Y{ MOFF }, MESH_OFFSET_Z{ MOFF };
     static constexpr int REGION_SIZE_X{ RSIZE }, REGION_SIZE_Y{ RSIZE }, REGION_SIZE_Z{ RSIZE };
+    static constexpr int MESH_REGION_SIZE_X{ MRSIZE }, MESH_REGION_SIZE_Y{ MRSIZE }, MESH_REGION_SIZE_Z{ MRSIZE };
     static constexpr int REGION_CONTAINER_SIZE_X{ RCSIZE }, REGION_CONTAINER_SIZE_Y{ RCSIZE }, REGION_CONTAINER_SIZE_Z{ RCSIZE };
+    static constexpr int MESH_REGION_CONTAINER_SIZE_X{ MRCSIZE }, MESH_REGION_CONTAINER_SIZE_Y{ MRCSIZE }, MESH_REGION_CONTAINER_SIZE_Z{ MRCSIZE };
     static constexpr int RENDER_DISTANCE_X{ RDISTANCE }, RENDER_DISTANCE_Y{ RDISTANCE }, RENDER_DISTANCE_Z{ RDISTANCE };
     static constexpr int REMOVE_DISTANCE_X{ REDISTANCE }, REMOVE_DISTANCE_Y{ REDISTANCE }, REMOVE_DISTANCE_Z{ REDISTANCE };
 
     static constexpr int CHUNK_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z };
     static constexpr int CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z };
     static constexpr int REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z };
+    static constexpr int MESH_REGION_CONTAINER_SIZE{ MESH_REGION_CONTAINER_SIZE_X * MESH_REGION_CONTAINER_SIZE_Y * MESH_REGION_CONTAINER_SIZE_Z };
     static constexpr int MESH_CONTAINER_SIZE{ MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z };
     static constexpr int REGION_SIZE{ REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z };
+    static constexpr int MESH_REGION_SIZE{ MESH_REGION_SIZE_X * MESH_REGION_SIZE_Y * MESH_REGION_SIZE_Z };
 
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
@@ -155,6 +161,7 @@ private:
     static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
 
     static constexpr char WORLD_ROOT[]{ "world/" };
+    static constexpr char MESH_CACHE_ROOT[]{ "cache/" };
 
     static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
@@ -167,6 +174,7 @@ private:
     static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
     static constexpr iVec3 CHUNK_CONTAINER_SIZES{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
     static constexpr iVec3 REGION_CONTAINER_SIZES{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
+    static constexpr iVec3 MESH_REGION_CONTAINER_SIZES{ MESH_REGION_CONTAINER_SIZE_X, MESH_REGION_CONTAINER_SIZE_Y, MESH_REGION_CONTAINER_SIZE_Z };
 
     static constexpr iVec3 MESH_CONTAINER_SIZES{ MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z };
     static constexpr iVec3 MESH_SIZES{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
@@ -196,6 +204,13 @@ private:
         Bytef * data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
     } m_regions[REGION_CONTAINER_SIZE];
+
+    struct MeshCache
+    {
+        iVec3 position;
+        enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
+        Status statuses[MESH_REGION_SIZE];
+    } m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
 
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
@@ -238,6 +253,9 @@ private:
     void exitLoaderThread();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
+    void loadMeshCache(const iVec3 mesh_cache_position);
     void saveChunkToRegion(const int chunk_index);
     void saveRegionToDrive(const int region_index);
+    void saveMeshCacheToDrive(const int mesh_cache_index);
+
 };

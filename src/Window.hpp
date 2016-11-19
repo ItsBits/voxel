@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 struct GLFWwindow;
 struct GLFWmonitor;
 
@@ -11,7 +13,7 @@ public:
         int gl_major, gl_minor;
         int aa_samples;
         GLFWmonitor * monitor;
-        const char * name;
+        const std::string name;
         float r, g, b, a;
         bool v_sync;
         int width, height;

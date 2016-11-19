@@ -10,9 +10,11 @@
 
 //==============================================================================
 constexpr char World::WORLD_ROOT[];
+constexpr char World::MESH_CACHE_ROOT[];
 constexpr iVec3 World::CHUNK_SIZES;
 constexpr iVec3 World::CHUNK_CONTAINER_SIZES;
 constexpr iVec3 World::REGION_CONTAINER_SIZES;
+constexpr iVec3 World::MESH_REGION_CONTAINER_SIZES;
 constexpr int World::META_DATA_SIZE;
 constexpr iVec3 World::REGION_SIZES;
 constexpr int World::MESH_BORDER_REQUIRED_SIZE;
@@ -22,8 +24,7 @@ constexpr iVec3 World::MESH_SIZES;
 constexpr iVec3 World::MESH_OFFSETS;
 
 //==============================================================================
-World::World(const char * location) :
-        m_data_location{ location },
+World::World() :
         m_center{ { 0, 0, 0 }, { 0, 0, 0 } },
         m_back_buffer{ 0 },
         m_quit{ false },
@@ -53,9 +54,17 @@ World::World(const char * location) :
     }
     m_regions[0].position = { 1, 0, 0 };
 
+    for (auto & i : m_mesh_cache_infos)
+    {
+      i.position = { 0, 0, 0 };
+      for (auto & s : i.statuses) s = MeshCache::Status::UNKNOWN;
+    }
+    m_mesh_cache_infos[0].position = { 1, 0, 0 };
+
     for (auto & i : m_needs_save) i = false;
     for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
+    //std::atomic_thread_fence(std::memory_order_seq_cst);
     m_loader_thread = std::thread{ &World::meshLoader, this };
 }
 
@@ -176,7 +185,7 @@ void World::loadRegion(const iVec3 region_position)
 
     // return if already loaded
     if (all(old_position == region_position))
-      return;
+        return;
 
     // save existing region
     saveRegionToDrive(region_index);
@@ -209,6 +218,41 @@ void World::loadRegion(const iVec3 region_position)
         region.size = 0;
         region.container_size = REGION_DATA_SIZE_FACTOR;
         for (auto & i : region.metas) i = { 0, 0 };
+    }
+}
+
+//==============================================================================
+void World::loadMeshCache(const iVec3 mesh_cache_position)
+{
+    const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
+    const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
+
+    const auto old_position = m_mesh_cache_infos[mesh_cache_index].position;
+
+    // return if already loaded
+    if (all(old_position == mesh_cache_position))
+        return;
+
+    saveMeshCacheToDrive(mesh_cache_index);
+
+    std::string in_file_name = MESH_CACHE_ROOT + toString(mesh_cache_position);
+    std::ifstream in_file{ in_file_name, std::ifstream::binary };
+    if (in_file.good())
+    {
+      Debug::print("Loading mesh cache ", toString(mesh_cache_position));
+
+      auto & cache = m_mesh_cache_infos[mesh_cache_index];
+      cache.position = mesh_cache_position;
+
+      in_file.read(reinterpret_cast<char *>(cache.statuses), MESH_REGION_SIZE * sizeof(MeshCache::Status));
+    }
+    else
+    {
+        // construct new mesh cache
+        for (auto & i : m_mesh_cache_infos[mesh_cache_index].statuses)
+            i = MeshCache::Status::UNKNOWN;
+
+        m_mesh_cache_infos[mesh_cache_index].position = mesh_cache_position;
     }
 }
 
@@ -1065,5 +1109,26 @@ void World::saveRegionToDrive(const int region_index)
         file.write(reinterpret_cast<const char *>(&m_regions[region_index].size), sizeof(int));
         file.write(reinterpret_cast<const char *>(m_regions[region_index].metas), META_DATA_SIZE);
         file.write(reinterpret_cast<const char *>(m_regions[region_index].data), m_regions[region_index].size);
+    }
+}
+
+//==============================================================================
+void World::saveMeshCacheToDrive(const int mesh_cache_index)
+{
+    const auto position = m_mesh_cache_infos[mesh_cache_index].position;
+
+    // only if valid
+    if (
+            (mesh_cache_index == 0 && all(position == iVec3{ 0, 0, 0 })) ||
+            (mesh_cache_index != 0 && !all(position == iVec3{ 0, 0, 0 }))
+       )
+    {
+        // save old mesh cache
+        Debug::print("Saving mesh cache ", toString(position));
+
+        std::string file_name = MESH_CACHE_ROOT + toString(position);
+        std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
+
+        file.write(reinterpret_cast<const char *>(&m_mesh_cache_infos[mesh_cache_index].statuses), MESH_REGION_SIZE * sizeof(MeshCache::Status));
     }
 }

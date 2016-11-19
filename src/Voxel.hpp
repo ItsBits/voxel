@@ -12,7 +12,7 @@
 class Voxel
 {
 public:
-    Voxel(const char * location);
+    Voxel(const std::string & name);
 
     void run();
 

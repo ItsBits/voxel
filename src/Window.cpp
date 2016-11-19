@@ -16,7 +16,7 @@ Window::Window(const Hints & hints)
     if (hints.aa_samples > 0) glfwWindowHint(GLFW_SAMPLES, hints.aa_samples);
 
     // Create window
-    m_window = glfwCreateWindow(hints.width, hints.height, hints.name, hints.monitor, nullptr);
+    m_window = glfwCreateWindow(hints.width, hints.height, hints.name.c_str(), hints.monitor, nullptr);
     if (m_window == nullptr) throw std::runtime_error("Failed to create window.");
     glfwMakeContextCurrent(m_window);
 

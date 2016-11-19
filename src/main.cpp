@@ -5,10 +5,8 @@ int main()
 {
     Debug::print("Size of class World is ", sizeof(World) / (1024 * 1024), " MB.");
 
-    const char * save_data_location{ "world/" };
-
     {
-        Voxel * engine = new Voxel{ save_data_location };
+        Voxel * engine = new Voxel{ "Voxel Test" };
         engine->run();
         delete engine;
     }
