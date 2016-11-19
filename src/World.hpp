@@ -1,14 +1,6 @@
 #pragma once
 
-
-
 #define NEW_M
-
-
-
-/*
- * TODO: player position should be chunk relative for float accuracy instead of absolute
- */
 
 /*
  * 2 Threads:
@@ -62,6 +54,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <stack>
+#include <queue>
 
 
 // TODO: expand
@@ -192,6 +185,7 @@ private:
     iVec3 m_mesh_positions[MESH_CONTAINER_SIZE];
     // TODO: more space efficient format than current (3 states only needed)
     Status m_mesh_loaded[MESH_CONTAINER_SIZE];
+    std::queue<iVec3> m_check_list;
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
     struct Region

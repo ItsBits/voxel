@@ -1,6 +1,5 @@
 #include "World.hpp"
 #include "QuadEBO.hpp"
-#include <queue>
 #include <cassert>
 #include <cmath>
 #include "TinyAlgebraExtensions.hpp"
@@ -55,6 +54,7 @@ World::World(const char * location) :
     m_regions[0].position = { 1, 0, 0 };
 
     for (auto & i : m_needs_save) i = false;
+    for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
     m_loader_thread = std::thread{ &World::meshLoader, this };
 }
@@ -537,7 +537,7 @@ void World::meshLoader()
         tasks.upload.clear();
 #endif
 
-        for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
+        //for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
         bool buffer_stall = false;
 
@@ -574,6 +574,7 @@ void World::meshLoader()
 #endif
                 }
                 m_loaded_meshes[i] = m_loaded_meshes[--count];
+                m_mesh_loaded[mesh_index] = Status::UNLOADED;
             }
             else
             {
@@ -595,25 +596,26 @@ void World::meshLoader()
         if (!buffer_stall)
         {
             // find meshes to generate and generate them
-            std::queue<iVec3> check_list;
+            //std::queue<iVec3> check_list;
+
             // add center mesh
             const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
-            check_list.push(center_mesh);
+            m_check_list.push(center_mesh);
 
             // breadth first search finds all borders of loaded are and loads it
 #ifdef NEW_M
-            while (!check_list.empty() && !m_moved_far)
+            while (!m_check_list.empty() && !m_moved_far)
 #else
-            while (!check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
+            while (!m_check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
 #endif
             {
-                const auto current = check_list.front();
+                const auto current = m_check_list.front();
 
                 const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
 
                 if (m_mesh_loaded[current_index] == Status::CHECKED)
                 {
-                    check_list.pop();
+                    m_check_list.pop();
                     continue;
                 }
                   // load
@@ -652,7 +654,7 @@ void World::meshLoader()
                         m_commands.discardPush();
 #endif
                     }
-                    m_mesh_loaded[current_index] = Status::CHECKED;
+                    //m_mesh_loaded[current_index] = Status::CHECKED;
                     m_loaded_meshes.push_back({current, mesh.size() == 0});
                 }
                 // push neighbours that are in render radius
@@ -663,16 +665,16 @@ void World::meshLoader()
                             current - iVec3{1, 0, 0}, current - iVec3{0, 1, 0}, current - iVec3{0, 0, 1},
                     };
 
-                    for (const iVec3 *pos = neighbours; pos < neighbours + 6; ++pos)
+                    for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
                         if (inRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
-                            check_list.push(*pos);
+                            m_check_list.push(*pos);
                 }
                 else
                 {
                     assert(0);
                 }
 
-                check_list.pop();
+                m_check_list.pop();
                 m_mesh_loaded[current_index] = Status::CHECKED;
             }
         }

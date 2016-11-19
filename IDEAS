@@ -10,3 +10,5 @@
   this allocation could be implemented with the custom allocator I made
 
 * use mmap for faster io and maybe replace RAM copy of region by mmap
+
+* player position should be chunk relative for float accuracy instead of absolute
