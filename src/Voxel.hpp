@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Settings.hpp"
 #include "Window.hpp"
 #include "World.hpp"
 #include "Shader.hpp"
@@ -12,7 +13,7 @@
 class Voxel
 {
 public:
-    Voxel(const std::string & name);
+    Voxel(const std::string &name);
 
     void run();
 
@@ -31,7 +32,9 @@ private:
     GLint m_font_size_location;
     TextureArray m_font_textures;
 
-    static constexpr double FRAME_RATE_UPDATE_RATE{ 1.0 };
-    static constexpr double TARGET_FRAME_RATE{ 80.0 }; // TODO: figure out why low value < 50.0 makes the keyboard feel sticky
+    static constexpr double FRAME_RATE_UPDATE_RATE{1.0};
 
+    static constexpr double TARGET_FRAME_RATE{ // TODO: figure out why low value < 50.0 makes the keyboard feel sticky (GLFW fault!)
+            SETTINGS_TARGET_FPS
+    };
 };

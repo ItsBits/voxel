@@ -112,11 +112,11 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 100 },
+            RDISTANCE{ 130 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
-            MCSIZE{ 60 },
+            MCSIZE{ 48 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
             MOFF{ MESH_BORDER_REQUIRED_SIZE + 3 }, // or maybe do chunk_size / 2
             //MOFF{ 0 },
@@ -161,7 +161,7 @@ private:
     static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
 
     static constexpr char WORLD_ROOT[]{ "world/" };
-    static constexpr char MESH_CACHE_ROOT[]{ "cache/" };
+    static constexpr char MESH_CACHE_ROOT[]{ "mesh_cache/" };
 
     static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
@@ -175,12 +175,15 @@ private:
     static constexpr iVec3 CHUNK_CONTAINER_SIZES{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
     static constexpr iVec3 REGION_CONTAINER_SIZES{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
     static constexpr iVec3 MESH_REGION_CONTAINER_SIZES{ MESH_REGION_CONTAINER_SIZE_X, MESH_REGION_CONTAINER_SIZE_Y, MESH_REGION_CONTAINER_SIZE_Z };
+    static constexpr iVec3 MESH_REGION_SIZES{ MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z };
 
     static constexpr iVec3 MESH_CONTAINER_SIZES{ MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z };
     static constexpr iVec3 MESH_SIZES{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
     static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
+
+    static constexpr int SLEEP_MS{ 500 };
 
     //==============================================================================
     // variables
@@ -203,6 +206,7 @@ private:
         ChunkMeta metas[REGION_SIZE];
         Bytef * data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
+        // TODO: m_region_needs_save flag indicating whether region was changed and needs to be saved to drive again
     } m_regions[REGION_CONTAINER_SIZE];
 
     struct MeshCache
@@ -210,6 +214,7 @@ private:
         iVec3 position;
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
         Status statuses[MESH_REGION_SIZE];
+        // TODO: m_mesh_cache_needs_save flag indicating whether mesh cache was changed and needs to be saved to drive again
     } m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
 
     // renderer thread data
@@ -257,5 +262,7 @@ private:
     void saveChunkToRegion(const int chunk_index);
     void saveRegionToDrive(const int region_index);
     void saveMeshCacheToDrive(const int mesh_cache_index);
+    MeshCache::Status meshStatus(const iVec3 mesh_position);
+    void setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new_status);
 
 };

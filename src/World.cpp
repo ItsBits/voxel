@@ -7,6 +7,7 @@
 #include "Profiler.hpp"
 #include <cstring>
 #include <fstream>
+#include "Settings.hpp"
 
 //==============================================================================
 constexpr char World::WORLD_ROOT[];
@@ -15,6 +16,7 @@ constexpr iVec3 World::CHUNK_SIZES;
 constexpr iVec3 World::CHUNK_CONTAINER_SIZES;
 constexpr iVec3 World::REGION_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_REGION_CONTAINER_SIZES;
+constexpr iVec3 World::MESH_REGION_SIZES;
 constexpr int World::META_DATA_SIZE;
 constexpr iVec3 World::REGION_SIZES;
 constexpr int World::MESH_BORDER_REQUIRED_SIZE;
@@ -22,6 +24,7 @@ constexpr unsigned char World::SHADDOW_STRENGTH;
 constexpr iVec3 World::MESH_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_SIZES;
 constexpr iVec3 World::MESH_OFFSETS;
+constexpr int World::SLEEP_MS;
 
 //==============================================================================
 World::World() :
@@ -56,8 +59,8 @@ World::World() :
 
     for (auto & i : m_mesh_cache_infos)
     {
-      i.position = { 0, 0, 0 };
-      for (auto & s : i.statuses) s = MeshCache::Status::UNKNOWN;
+        i.position = { 0, 0, 0 };
+        for (auto & s : i.statuses) s = MeshCache::Status::UNKNOWN;
     }
     m_mesh_cache_infos[0].position = { 1, 0, 0 };
 
@@ -85,6 +88,10 @@ World::~World()
     // save all valid regions
     for (auto region_index = 0; region_index < REGION_CONTAINER_SIZE; ++region_index)
         saveRegionToDrive(region_index);
+
+    // save all mesh caches to drive
+    for (auto mesh_cache_index = 0; mesh_cache_index < MESH_REGION_CONTAINER_SIZE; ++mesh_cache_index)
+        saveMeshCacheToDrive(mesh_cache_index);
 
     Debug::print("Cleaning up memory.");
 
@@ -173,6 +180,44 @@ int World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 
     Profiler::add(Profiler::Task::ChunksLoaded, chunks_loaded);
     return chunks_loaded;
+}
+
+//==============================================================================
+World::MeshCache::Status World::meshStatus(const iVec3 mesh_position)
+{
+    const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
+
+    const auto mesh_in_mesh_cache_relative = floorMod(mesh_position, MESH_REGION_SIZES);
+    const auto mesh_in_mesh_cache_index = toIndex(mesh_in_mesh_cache_relative, MESH_REGION_SIZES);
+
+    const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
+    const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
+
+    const auto & mesh_cache = m_mesh_cache_infos[mesh_cache_index];
+
+    if (!all(mesh_cache.position == mesh_cache_position))
+        loadMeshCache(mesh_cache_position);
+
+    return mesh_cache.statuses[mesh_in_mesh_cache_index];
+}
+
+//==============================================================================
+void World::setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new_status)
+{
+    const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
+
+    const auto mesh_in_mesh_cache_relative = floorMod(mesh_position, MESH_REGION_SIZES);
+    const auto mesh_in_mesh_cache_index = toIndex(mesh_in_mesh_cache_relative, MESH_REGION_SIZES);
+
+    const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
+    const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
+
+    auto & mesh_cache = m_mesh_cache_infos[mesh_cache_index];
+
+    if (!all(mesh_cache.position == mesh_cache_position))
+      loadMeshCache(mesh_cache_position);
+
+    mesh_cache.statuses[mesh_in_mesh_cache_index] = new_status;
 }
 
 //==============================================================================
@@ -317,9 +362,6 @@ int World::loadChunk(const iVec3 chunk_position)
 //==============================================================================
 std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_block)
 {
-    const auto f = from_block - MESH_BORDER_REQUIRED_SIZE;
-    const auto t = to_block + MESH_BORDER_REQUIRED_SIZE;
-
     Profiler::add(Profiler::Task::MeshesGenerated, 1);
 
     iVec3 position;
@@ -584,6 +626,7 @@ void World::meshLoader()
         //for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
         bool buffer_stall = false;
+        bool new_stuff_found = false;
 
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
@@ -667,44 +710,54 @@ void World::meshLoader()
                     m_check_list.pop();
                     continue;
                 }
-                  // load
+                // load
                 else if (m_mesh_loaded[current_index] == Status::UNLOADED)
                 {
-#ifdef NEW_M
-                    Command * command = m_commands.initPush();
-                    if (command == nullptr)
+                    new_stuff_found = true;
+                    if (meshStatus(current) != MeshCache::Status::EMPTY)
                     {
-                        // command buffer stall
-                        buffer_stall = true;
-                        break;
-                    }
+#ifdef NEW_M
+                        Command *command = m_commands.initPush();
+                        if (command == nullptr)
+                        {
+                            // command buffer stall
+                            buffer_stall = true;
+                            break;
+                        }
 #endif
-                    const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
-                    const auto to_block = from_block + MESH_SIZES;
-                    // TODO: paralelize next two lines?
-                    loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
-                    const auto mesh = generateMesh(from_block, to_block);
+                        const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
+                        const auto to_block = from_block + MESH_SIZES;
+                        // TODO: paralelize next two lines?
+                        loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
+                        const auto mesh = generateMesh(from_block, to_block);
 
-                    if (mesh.size() > 0)
-                    {
+                        if (mesh.size() > 0)
+                        {
+                            setMeshStatus(current, MeshCache::Status::NON_EMPTY);
 #ifdef NEW_M
-                        command->type = Command::Type::UPLOAD;
-                        command->index = current_index;
-                        command->position = current;
-                        command->mesh = mesh;
-                        m_commands.commitPush();
+                            command->type = Command::Type::UPLOAD;
+                            command->index = current_index;
+                            command->position = current;
+                            command->mesh = mesh;
+                            m_commands.commitPush();
 #else
-                        tasks.upload.push_back({current_index, current, mesh});
+                            tasks.upload.push_back({current_index, current, mesh});
 #endif
+                        }
+                        else
+                        {
+                            setMeshStatus(current, MeshCache::Status::EMPTY);
+#ifdef NEW_M
+                            m_commands.discardPush();
+#endif
+                        }
+                        //m_mesh_loaded[current_index] = Status::CHECKED;
+                        m_loaded_meshes.push_back({ current, mesh.size() == 0 });
                     }
                     else
                     {
-#ifdef NEW_M
-                        m_commands.discardPush();
-#endif
+                        m_loaded_meshes.push_back({ current, true });
                     }
-                    //m_mesh_loaded[current_index] = Status::CHECKED;
-                    m_loaded_meshes.push_back({current, mesh.size() == 0});
                 }
                 // push neighbours that are in render radius
                 else if (m_mesh_loaded[current_index] == Status::LOADED)
@@ -755,8 +808,13 @@ void World::meshLoader()
                      " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
         );
 
-        // TODO: remove to see performance difference
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//#ifdef SETTINGS_POWER_SAVER
+        if (!new_stuff_found) // this doubles as sleep if buffer stall (not sure)
+        {
+            Debug::print("All loaded. Loader sleeping for ", SLEEP_MS, "ms.");
+            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
+        }
+//#endif
     }
 
     Debug::print("Exited loader thread.");
@@ -1091,6 +1149,8 @@ void World::saveChunkToRegion(const int chunk_index)
 //==============================================================================
 void World::saveRegionToDrive(const int region_index)
 {
+    // TODO: only if changes have been made / not saved yet
+
     const auto position = m_regions[region_index].position;
 
     // only if valid
@@ -1115,6 +1175,8 @@ void World::saveRegionToDrive(const int region_index)
 //==============================================================================
 void World::saveMeshCacheToDrive(const int mesh_cache_index)
 {
+    // TODO: only if changes have been made / not saved yet
+
     const auto position = m_mesh_cache_infos[mesh_cache_index].position;
 
     // only if valid
