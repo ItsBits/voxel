@@ -1,5 +1,11 @@
 #pragma once
 
+
+
+#define NEW_M
+
+
+
 /*
  * TODO: player position should be chunk relative for float accuracy instead of absolute
  */
@@ -43,6 +49,7 @@
  */
 
 
+#include "RingBufferSingleProducerSingleConsumer.hpp"
 #include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
 #include "Block.hpp"
@@ -84,6 +91,15 @@ struct Tasks
     std::vector<Remove> remove;
     std::vector<Render> render;
     std::vector<Upload> upload;
+};
+
+struct Command
+{
+    enum class Type : int { REMOVE, UPLOAD };
+    Type type;
+    int index;
+    iVec3 position;
+    std::vector<Vertex> mesh;
 };
 
 struct MeshWPos { Mesh mesh; iVec3 position; };
@@ -149,7 +165,9 @@ private:
     static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
     static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * MSIZE };
+#ifndef NEW_M
     static constexpr int MESH_COUNT_NEEDED_FOR_RESET{ 16 };
+#endif
 
     static constexpr iVec3 CHUNK_SIZES{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
     static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
@@ -159,6 +177,8 @@ private:
     static constexpr iVec3 MESH_CONTAINER_SIZES{ MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z };
     static constexpr iVec3 MESH_SIZES{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
     static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
+
+    static constexpr int COMMAND_BUFFER_SIZE{ 128 };
 
     //==============================================================================
     // variables
@@ -184,7 +204,7 @@ private:
 
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
-#define NEW_M
+
 #ifdef NEW_M
     SparseMap<MeshWPos, MESH_CONTAINER_SIZE> m_meshes;
 #else
@@ -192,7 +212,11 @@ private:
 #endif
 
     // shared / synchronization data
+#ifdef NEW_M
+    RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
+#else
     Tasks m_tasks[2]; // double buffering
+#endif
     iVec3 m_center[2];
     int m_back_buffer;
     std::atomic_bool m_quit;

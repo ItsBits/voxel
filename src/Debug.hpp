@@ -28,7 +28,13 @@ public:
     }
 
 private:
-    static constexpr bool DISPLAY_DEBUG{ false };
+    static constexpr bool DISPLAY_DEBUG{
+#ifdef NDEBUG
+            false
+#else
+            true
+#endif
+    };
 
     static std::mutex m_lock;
 

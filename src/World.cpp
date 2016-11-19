@@ -526,15 +526,20 @@ void World::meshLoader()
         Profiler::resetAll();
         Debug::print(__func__, "New loader thread loop.");
 
-        Tasks & tasks = m_tasks[m_back_buffer];
         const iVec3 center = m_center[m_back_buffer];
+
+#ifndef NEW_M
+        Tasks & tasks = m_tasks[m_back_buffer];
 
         // reset
         tasks.remove.clear();
         tasks.render.clear();
         tasks.upload.clear();
+#endif
 
         for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
+
+        bool buffer_stall = false;
 
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
@@ -549,13 +554,33 @@ void World::meshLoader()
             if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
             {
                 if (!m_loaded_meshes[i].empty)
+                {
+#ifdef NEW_M
+                    Command * command = m_commands.initPush();
+                    if (command != nullptr)
+                    {
+                        command->type = Command::Type::REMOVE;
+                        command->index = mesh_index;
+                        m_commands.commitPush();
+                    }
+                    else
+                    {
+                        Debug::print(__func__, "Command buffer is full.");
+                        buffer_stall = true;
+                        break;
+                    }
+#else
                     tasks.remove.push_back({ mesh_index });
+#endif
+                }
                 m_loaded_meshes[i] = m_loaded_meshes[--count];
             }
             else
             {
+#ifndef NEW_M
                 if (!m_loaded_meshes[i].empty)
                     tasks.render.push_back({ mesh_index, m_loaded_meshes[i].position });
+#endif
                 m_mesh_loaded[mesh_index] = Status::LOADED;
                 ++i;
             }
@@ -563,62 +588,105 @@ void World::meshLoader()
         }
         m_loaded_meshes.resize(count);
 
-        // find meshes to generate and generate them
-        std::queue<iVec3> check_list;
-        // add center mesh
-        const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
-        check_list.push(center_mesh);
+        // WARNING: do not run mesh loader if buffer_stall is true,
+        // because it can cause memory leak on the GPU (although should be caught by SparseMap if NDEBUG is note defined)
 
-        // breadth first search finds all borders of loaded are and loads it
-        while (!check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
+        // if command buffer was full let renderer breathe for a bit
+        if (!buffer_stall)
         {
-            const auto current = check_list.front();
-            check_list.pop();
-            const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
+            // find meshes to generate and generate them
+            std::queue<iVec3> check_list;
+            // add center mesh
+            const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
+            check_list.push(center_mesh);
 
-            if (m_mesh_loaded[current_index] == Status::CHECKED)
+            // breadth first search finds all borders of loaded are and loads it
+#ifdef NEW_M
+            while (!check_list.empty() && !m_moved_far)
+#else
+            while (!check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
+#endif
             {
-                continue;
-            }
-            // load
-            else if (m_mesh_loaded[current_index] == Status::UNLOADED)
-            {
-                const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
-                const auto to_block = from_block + MESH_SIZES;
-                // TODO: paralelize next two lines?
-                loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
-                const auto mesh = generateMesh(from_block, to_block);
+                const auto current = check_list.front();
 
-                if (mesh.size() > 0) tasks.upload.push_back({ current_index, current, mesh });
+                const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
 
+                if (m_mesh_loaded[current_index] == Status::CHECKED)
+                {
+                    check_list.pop();
+                    continue;
+                }
+                  // load
+                else if (m_mesh_loaded[current_index] == Status::UNLOADED)
+                {
+#ifdef NEW_M
+                    Command * command = m_commands.initPush();
+                    if (command == nullptr)
+                    {
+                        // command buffer stall
+                        buffer_stall = true;
+                        break;
+                    }
+#endif
+                    const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
+                    const auto to_block = from_block + MESH_SIZES;
+                    // TODO: paralelize next two lines?
+                    loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
+                    const auto mesh = generateMesh(from_block, to_block);
+
+                    if (mesh.size() > 0)
+                    {
+#ifdef NEW_M
+                        command->type = Command::Type::UPLOAD;
+                        command->index = current_index;
+                        command->position = current;
+                        command->mesh = mesh;
+                        m_commands.commitPush();
+#else
+                        tasks.upload.push_back({current_index, current, mesh});
+#endif
+                    }
+                    else
+                    {
+#ifdef NEW_M
+                        m_commands.discardPush();
+#endif
+                    }
+                    m_mesh_loaded[current_index] = Status::CHECKED;
+                    m_loaded_meshes.push_back({current, mesh.size() == 0});
+                }
+                // push neighbours that are in render radius
+                else if (m_mesh_loaded[current_index] == Status::LOADED)
+                {
+                    const iVec3 neighbours[6]{
+                            current + iVec3{1, 0, 0}, current + iVec3{0, 1, 0}, current + iVec3{0, 0, 1},
+                            current - iVec3{1, 0, 0}, current - iVec3{0, 1, 0}, current - iVec3{0, 0, 1},
+                    };
+
+                    for (const iVec3 *pos = neighbours; pos < neighbours + 6; ++pos)
+                        if (inRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
+                            check_list.push(*pos);
+                }
+                else
+                {
+                    assert(0);
+                }
+
+                check_list.pop();
                 m_mesh_loaded[current_index] = Status::CHECKED;
-                m_loaded_meshes.push_back({ current, mesh.size() == 0 });
             }
-            // push neighbours that are in render radius
-            else if (m_mesh_loaded[current_index] == Status::LOADED)
-            {
-                const iVec3 neighbours[6]{
-                        current + iVec3{ 1, 0, 0 }, current + iVec3{ 0, 1, 0 }, current + iVec3{ 0, 0, 1 },
-                        current - iVec3{ 1, 0, 0 }, current - iVec3{ 0, 1, 0 }, current - iVec3{ 0, 0, 1 },
-                };
-
-                for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
-                    if (inRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
-                        check_list.push(*pos);
-            }
-            else
-            {
-               assert(0);
-            }
-            m_mesh_loaded[current_index] = Status::CHECKED;
         }
 
         if (m_moved_far)
             Debug::print(__func__, "Resetting because moved far.");
+        if (buffer_stall)
+            Debug::print(__func__, "Resetting command buffer is full.");
 
+#ifndef NEW_M
         Debug::print(__func__, "Render: ", tasks.render.size());
         Debug::print(__func__, "Upload: ", tasks.upload.size());
         Debug::print(__func__, "Remove: ", tasks.remove.size());
+#endif
         {
             // request task buffer swap wait for it
             std::unique_lock<std::mutex> lock{ m_lock };
@@ -630,11 +698,13 @@ void World::meshLoader()
         // TODO: increase the ratio by generating meshes in bulk
         const int loaded_c = Profiler::get(Profiler::Task::ChunksLoaded);
         const int loaded_m = Profiler::get(Profiler::Task::MeshesGenerated);
-        Debug::printAlways(__func__,
+        Debug::print(__func__,
                      "Chunks loaded: ", loaded_c,
                      " Meshes generated: ", loaded_m,
                      " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
         );
+
+        // TODO: remove to see performance difference
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
@@ -654,7 +724,9 @@ bool World::inRange(const iVec3 center_block, const iVec3 position_block, const 
 //==============================================================================
 void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 {
+#ifndef NEW_M
     Tasks & tasks = m_tasks[(m_back_buffer + 1) % 2];
+#endif
     m_center[(m_back_buffer + 1) % 2] = new_center;
 
     const auto delta_movement = new_center - m_center[m_back_buffer];
@@ -662,13 +734,25 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     const auto moved_far = square_distance >= SQUARE_LOAD_RESET_DISTANCE;
     m_moved_far = m_moved_far || moved_far; // set as soon as outside range once
 
+#ifdef NEW_M
+    Command * command = m_commands.initPop();
+#endif
+
+    // TODO: combine REMOVE and UPLOAD if-statement
+
     // remove
+#ifdef NEW_M
+    if (command != nullptr && command->type == Command::Type::REMOVE)
+#else
     if (!tasks.remove.empty())
+#endif
     {
+#ifndef NEW_M
         const Remove & task = tasks.remove.back();
+#endif
 
 #ifdef NEW_M
-        const auto & mesh_data = m_meshes.get(task.index)->data.mesh;
+        const auto & mesh_data = m_meshes.get(command->index)->data.mesh;
 #else
         auto & mesh_data = m_meshes_old[task.index];
 #endif
@@ -682,20 +766,29 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 #endif
 
 #ifdef NEW_M
-        m_meshes.del(task.index);
+        m_meshes.del(command->index);
 #else
         mesh_data.VAO = 0;
         mesh_data.VBO = 0;
 #endif
 
+#ifdef NEW_M
+        m_commands.commitPop();
+#else
         tasks.remove.pop_back();
+#endif
     }
 
     // upload only after nothing left to remove
+#ifdef NEW_M
+    if (command != nullptr && command->type == Command::Type::UPLOAD)
+#else
     if (!tasks.upload.empty() && tasks.remove.empty())
+#endif
     {
+#ifndef NEW_M
         const Upload & task = tasks.upload.back();
-
+#endif
         GLuint VAO = 0, VBO = 0;
         if (!m_unused_buffers.empty())
         {
@@ -726,19 +819,29 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 
           glBindVertexArray(0);
         }
-
+#ifdef NEW_M
+        assert(command->mesh.size() > 0 && "Mesh size must be over 0.");
+#else
         assert(task.mesh.size() > 0 && "Mesh size must be over 0.");
+#endif
         assert(VAO != 0 && VBO != 0 && "Failed to gent VAO and VBO for mesh.");
 
         // upload mesh
+#ifdef NEW_M
+        glBufferData(GL_ARRAY_BUFFER, command->mesh.size() * sizeof(command->mesh[0]), command->mesh.data(), GL_STATIC_DRAW);
+        // fast multiply by 1.5
+        const int EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
+        QuadEBO::resize(EBO_size);
+#else
         glBufferData(GL_ARRAY_BUFFER, task.mesh.size() * sizeof(task.mesh[0]), task.mesh.data(), GL_STATIC_DRAW);
-
         // fast multiply by 1.5
         const int EBO_size = static_cast<int>((task.mesh.size() >> 1) + task.mesh.size());
         QuadEBO::resize(EBO_size);
+#endif
+
 
 #ifdef NEW_M
-        m_meshes.add(task.index, { { VAO, VBO, EBO_size }, task.position });
+        m_meshes.add(command->index, { { VAO, VBO, EBO_size }, command->position });
 #else
         assert(m_meshes_old[task.index].VAO == 0 && m_meshes_old[task.index].VBO == 0 && "Buffers not cleaned up.");
         m_meshes_old[task.index].VAO = VAO;
@@ -749,7 +852,12 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
         m_meshes_old[task.index].size = EBO_size;
 
 #endif
+#ifdef NEW_M
+        command->mesh.clear(); // does not deallocate to reduce space but whatever TODO: should replace with flat array anyway
+        m_commands.commitPop();
+#else
         tasks.upload.pop_back();
+#endif
     }
 
     // render
@@ -800,7 +908,11 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 #endif
 
     // swap task buffers if loader ready
+#ifdef NEW_M
+    if (command == nullptr)
+#else
     if (tasks.upload.empty() && tasks.remove.empty())
+#endif
     {
         std::unique_lock<std::mutex> lock{ m_lock };
         if (m_loader_waiting)

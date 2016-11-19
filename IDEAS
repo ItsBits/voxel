@@ -2,3 +2,11 @@
   use a separate thread for updating existing loaded meshes
 * replace the remove upload render with a task queue (or maybe 1 task queue per thread)
   and execute the tasks on the render thread
+
+* shared_ptr for reference counting regions. if reference count == 1 for some time -> remove region.
+  when generating chunk in region -> mutex.lock
+  do not reallocate regions (so no realloc happens when another thread is reading data)
+  store chunks in allocated space with a next pointer that points to next block of compressed chunks (linked list of allocated space)
+  this allocation could be implemented with the custom allocator I made
+
+* use mmap for faster io and maybe replace RAM copy of region by mmap
