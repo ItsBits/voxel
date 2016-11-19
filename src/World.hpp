@@ -1,6 +1,7 @@
 #pragma once
 
 #define NEW_M
+#define RESET_QUEUE
 
 /*
  * 2 Threads:

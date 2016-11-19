@@ -600,6 +600,11 @@ void World::meshLoader()
 
             // add center mesh
             const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
+
+#ifdef RESET_QUEUE
+            { decltype(m_check_list) empty; std::swap(m_check_list, empty); }
+#endif
+
             m_check_list.push(center_mesh);
 
             // breadth first search finds all borders of loaded are and loads it
