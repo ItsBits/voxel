@@ -62,11 +62,11 @@ World::World(const char * location) :
 //==============================================================================
 World::~World()
 {
-    Debug::print(__func__, "Exiting loader thread.");
+    Debug::print("Exiting loader thread.");
 
     exitLoaderThread();
 
-    Debug::print(__func__, "Saving chunks.");
+    Debug::print("Saving chunks.");
 
     // check all chunks if they need to be saved and save them
     for (auto chunk_index = 0; chunk_index < CHUNK_CONTAINER_SIZE; ++chunk_index)
@@ -77,7 +77,7 @@ World::~World()
     for (auto region_index = 0; region_index < REGION_CONTAINER_SIZE; ++region_index)
         saveRegionToDrive(region_index);
 
-    Debug::print(__func__, "Cleaning up memory.");
+    Debug::print("Cleaning up memory.");
 
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
@@ -186,7 +186,7 @@ void World::loadRegion(const iVec3 region_position)
     if (in_file.good())
     {
         // load region from drive because it exists
-        Debug::print(__func__, "Loading region ", toString(region_position));
+        Debug::print("Loading region ", toString(region_position));
 
         auto & region = m_regions[region_index];
         region.position = region_position;
@@ -524,7 +524,7 @@ void World::meshLoader()
     while (!m_quit)
     {
         Profiler::resetAll();
-        Debug::print(__func__, "New loader thread loop.");
+        Debug::print("New loader thread loop.");
 
         const iVec3 center = m_center[m_back_buffer];
 
@@ -543,7 +543,7 @@ void World::meshLoader()
 
         // update remove and render in task list
         std::size_t count = m_loaded_meshes.size();
-        Debug::print(__func__, "Loaded meshes count: ", count);
+        Debug::print("Loaded meshes count: ", count);
         for (std::size_t i = 0; i < count;)
         {
             const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
@@ -565,7 +565,7 @@ void World::meshLoader()
                     }
                     else
                     {
-                        Debug::print(__func__, "Command buffer is full.");
+                        Debug::print("Command buffer is full.");
                         buffer_stall = true;
                         break;
                     }
@@ -678,14 +678,14 @@ void World::meshLoader()
         }
 
         if (m_moved_far)
-            Debug::print(__func__, "Resetting because moved far.");
+            Debug::print("Resetting because moved far.");
         if (buffer_stall)
-            Debug::print(__func__, "Resetting command buffer is full.");
+            Debug::print("Resetting command buffer is full.");
 
 #ifndef NEW_M
-        Debug::print(__func__, "Render: ", tasks.render.size());
-        Debug::print(__func__, "Upload: ", tasks.upload.size());
-        Debug::print(__func__, "Remove: ", tasks.remove.size());
+        Debug::print("Render: ", tasks.render.size());
+        Debug::print("Upload: ", tasks.upload.size());
+        Debug::print("Remove: ", tasks.remove.size());
 #endif
         {
             // request task buffer swap wait for it
@@ -698,7 +698,7 @@ void World::meshLoader()
         // TODO: increase the ratio by generating meshes in bulk
         const int loaded_c = Profiler::get(Profiler::Task::ChunksLoaded);
         const int loaded_m = Profiler::get(Profiler::Task::MeshesGenerated);
-        Debug::print(__func__,
+        Debug::print(
                      "Chunks loaded: ", loaded_c,
                      " Meshes generated: ", loaded_m,
                      " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
@@ -708,7 +708,7 @@ void World::meshLoader()
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 
-    Debug::print(__func__, "Exited loader thread.");
+    Debug::print("Exited loader thread.");
     m_loader_finished = true;
 }
 
@@ -1016,7 +1016,7 @@ void World::saveChunkToRegion(const int chunk_index)
     // resize if potentially out of space
     if (m_regions[previous_region_index].size + static_cast<int>(destination_length) > m_regions[previous_region_index].container_size)
     {
-        Debug::print(__func__, "Reallocating region container.");
+        Debug::print("Reallocating region container.");
         m_regions[previous_region_index].container_size += REGION_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : REGION_DATA_SIZE_FACTOR;
         m_regions[previous_region_index].data = (Bytef*)std::realloc(m_regions[previous_region_index].data, static_cast<std::size_t>(m_regions[previous_region_index].container_size));
     }
@@ -1049,7 +1049,7 @@ void World::saveRegionToDrive(const int region_index)
         )
     {
         // save old region
-        Debug::print(__func__, "Saving region ", toString(position));
+        Debug::print("Saving region ", toString(position));
         assert(m_regions[region_index].data != nullptr && "No idea why this can happen.");
 
         std::string file_name = WORLD_ROOT + toString(position);

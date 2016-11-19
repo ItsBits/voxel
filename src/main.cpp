@@ -3,7 +3,7 @@
 
 int main()
 {
-    Debug::print(__func__, "Size of class World is ", sizeof(World) / (1024 * 1024), " MB.");
+    Debug::print("Size of class World is ", sizeof(World) / (1024 * 1024), " MB.");
 
     const char * save_data_location{ "world/" };
 

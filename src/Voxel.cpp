@@ -110,7 +110,7 @@ void Voxel::run()
         if (current_time - last_fps_update > 1.0 / FRAME_RATE_UPDATE_RATE)
         {
             const double frame_rate = static_cast<double>(frame_counter) / (current_time - last_fps_update);
-            Debug::print(__func__, "FPS: ", frame_rate);
+            Debug::print("FPS: ", frame_rate);
             frame_counter = 0;
             last_fps_update = current_time;
 
