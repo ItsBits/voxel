@@ -2,45 +2,6 @@
 
 #define RESET_QUEUE
 
-/*
- * 2 Threads:
- *     render
- *     loader
- *
- * loader:
- *    reset free task list (m_tasks[c])
- *
- *    iterate over internal list (m_loaded_meshes)
- *        if out of range add to remove (m_tasks[c].remove.push_back(mesh))
- *        else add to render (m_tasks[c].render.push_back(mesh))
- *    iterate over all meshes (m_mesh_positions)
- *        if not loaded
- *            load mesh
- *                add to internal list (m_loaded_meshes)
- *                add to upload list (m_tasks[c].upload.push_back(mesh))
- *    hand over task list to renderer
- *
- * render:
- *    iterate over upload list (m_tasks[(c + 1) % 2].upload)
- *        upload mesh to GPU
- *        ADD TO RENDER LIST
- *    iterate over remove list (m_tasks[(c + 1) % 2].remove)
- *        free resources on GPU (VAO, VBO) and recycle them
- *    iterate over render list (m_tasks[(c + 1) % 2].render)
- *        draw elements from list
- *        (optional) overwrite index with VAO to reduce memory indirections in the next iteration
- *    ***
- *    To prevent noticeable stutter, first and second loop in render must not finish,
- *    but render must then not draw not-uploaded meshes.
- *    ***
- *
- *    if upload list done and remove list done and "enough time passed"
- *        request new task list
- *    else
- *        do not request new task list !!!
- */
-
-
 #include "RingBufferSingleProducerSingleConsumer.hpp"
 #include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
@@ -168,7 +129,6 @@ private:
 
     // loader thread data
     std::thread m_loader_thread;
-    std::string m_data_location;
     Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE];
     iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE];
     bool m_needs_save[CHUNK_CONTAINER_SIZE];
@@ -197,20 +157,14 @@ private:
 
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
-
+    iVec3 m_reference_center;
     SparseMap<MeshWPos, MESH_CONTAINER_SIZE> m_meshes;
 
     // shared / synchronization data
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
-    iVec3 m_center[2];
-    int m_back_buffer;
+    std::atomic<iVec3> m_center;
     std::atomic_bool m_quit;
-    std::mutex m_lock;
-    std::condition_variable m_cond_var;
-    bool m_swap;
-    std::atomic_bool m_loader_waiting;
     std::atomic_bool m_moved_far;
-    std::atomic_bool m_loader_finished;
 
     //==============================================================================
     // functions

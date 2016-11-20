@@ -37,8 +37,8 @@ private:
     std::atomic_int m_end{ 0 };
 
 #ifndef NDEBUG
-    bool m_push_pending{ false };
-    bool m_pop_pending{ false };
+    std::atomic_bool m_push_pending{ false };
+    std::atomic_bool m_pop_pending{ false };
 #endif
 
 };

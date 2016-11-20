@@ -28,13 +28,10 @@ constexpr int World::SLEEP_MS;
 
 //==============================================================================
 World::World() :
-        m_center{ { 0, 0, 0 }, { 0, 0, 0 } },
-        m_back_buffer{ 0 },
+        m_reference_center{ 0, 0, 0 },
+        m_center{ { 0, 0, 0 } },
         m_quit{ false },
-        m_swap{ false },
-        m_loader_waiting{ false },
-        m_moved_far{ false },
-        m_loader_finished{ false }
+        m_moved_far{ false }
 {
     for (auto & i : m_chunk_positions) i = { 0, 0, 0 };
     for (auto & i : m_mesh_positions) i = { 0, 0, 0 };
@@ -589,9 +586,7 @@ void World::meshLoader()
         Profiler::resetAll();
         Debug::print("New loader thread loop.");
 
-        const iVec3 center = m_center[m_back_buffer];
-
-        //for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
+        const iVec3 center = m_center.load();
 
         bool buffer_stall = false;
         bool new_stuff_found = false;
@@ -639,11 +634,12 @@ void World::meshLoader()
         // WARNING: do not run mesh loader if buffer_stall is true,
         // because it can cause memory leak on the GPU (although should be caught by SparseMap if NDEBUG is note defined)
 
+        bool moved_far = m_moved_far.exchange(false);
+
         // if command buffer was full let renderer breathe for a bit
         if (!buffer_stall)
         {
             // find meshes to generate and generate them
-            //std::queue<iVec3> check_list;
 
             // add center mesh
             const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
@@ -655,7 +651,7 @@ void World::meshLoader()
             m_check_list.push(center_mesh);
 
             // breadth first search finds all borders of loaded are and loads it
-            while (!m_check_list.empty() && !m_moved_far)
+            while (!m_check_list.empty() && !moved_far)
             {
                 const auto current = m_check_list.front();
 
@@ -701,7 +697,7 @@ void World::meshLoader()
                             setMeshStatus(current, MeshCache::Status::EMPTY);
                             m_commands.discardPush();
                         }
-                        //m_mesh_loaded[current_index] = Status::CHECKED;
+
                         m_loaded_meshes.push_back({ current, mesh.size() == 0 });
                     }
                     else
@@ -728,21 +724,15 @@ void World::meshLoader()
 
                 m_check_list.pop();
                 m_mesh_loaded[current_index] = Status::CHECKED;
+
+                moved_far = m_moved_far;
             }
         }
 
-        if (m_moved_far)
+        if (moved_far)
             Debug::print("Resetting because moved far.");
         if (buffer_stall)
             Debug::print("Resetting command buffer is full.");
-
-        {
-            // request task buffer swap wait for it
-            std::unique_lock<std::mutex> lock{ m_lock };
-            m_loader_waiting = true;
-            m_cond_var.wait(lock, [this] { return m_swap || m_quit; });
-            m_swap = false;
-        }
 
         // TODO: increase the ratio by generating meshes in bulk
         const int loaded_c = Profiler::get(Profiler::Task::ChunksLoaded);
@@ -753,17 +743,14 @@ void World::meshLoader()
                      " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
         );
 
-//#ifdef SETTINGS_POWER_SAVER
         if (!new_stuff_found) // this doubles as sleep if buffer stall (not sure)
         {
             Debug::print("All loaded. Loader sleeping for ", SLEEP_MS, "ms.");
             std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
         }
-//#endif
     }
 
     Debug::print("Exited loader thread.");
-    m_loader_finished = true;
 }
 
 //==============================================================================
@@ -778,13 +765,17 @@ bool World::inRange(const iVec3 center_block, const iVec3 position_block, const 
 //==============================================================================
 void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 {
-    // TODO: make center atomic and don't double buffer ?
-    m_center[(m_back_buffer + 1) % 2] = new_center;
+    m_center = new_center;
 
-    const auto delta_movement = new_center - m_center[m_back_buffer];
+    const auto delta_movement = new_center - m_reference_center;
     const auto square_distance = dot(delta_movement, delta_movement);
     const auto moved_far = square_distance >= SQUARE_LOAD_RESET_DISTANCE;
-    m_moved_far = m_moved_far || moved_far; // set as soon as outside range once
+
+    if (moved_far)
+    {
+        m_reference_center = new_center;
+        m_moved_far = true;
+    }
 
     Command * command = m_commands.initPop();
 
@@ -878,43 +869,18 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
             glBindVertexArray(0);
         }
     }
-
-    // swap task buffers if loader ready
-    if (command == nullptr)
-    {
-        std::unique_lock<std::mutex> lock{ m_lock };
-        if (m_loader_waiting)
-        {
-            m_back_buffer = (m_back_buffer + 1) % 2;
-            m_swap = true;
-            m_loader_waiting = false;
-            m_moved_far = false;
-            m_cond_var.notify_all();
-        }
-    }
 }
 
 //==============================================================================
 void World::exitLoaderThread()
 {
     if (!m_loader_thread.joinable())
-        return;
-
-    // ugly loader thread exit
-    m_quit = true;
-    while (true)
     {
-        {
-            std::unique_lock<std::mutex> lock{ m_lock };
-            if (m_loader_waiting || m_loader_finished)
-            {
-                m_cond_var.notify_all();
-                break;
-            }
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        assert(0 && "Why is loader not joinable?");
+        return;
     }
+
+    m_quit = true;
 
     m_loader_thread.join();
 }

@@ -2,7 +2,14 @@ Issues:
 * at low frame rates, keyboard feels unresponsive
     I assume it's because of GLFW being laggy. Slow refresh rate seem to register a key release + key press at key release
 
+* verify correctness of multi threading, chunk loading / unloading (memory leaks / data loss)
+
+* chunk loading feels unresponsive when moving far (again)
+    this time, loader thinks that "all chunks are loaded" when mobing out of loaded chunk range and goes to sleep for SLEEP_MS
+
 Verify if solved:
+
+Solved:
 * sometimes it appears that there is a deadlock when exiting loader thread
     (solution: introduce loader thread finished flag)
 * chunk loading feels unresponsive when moving fast
@@ -10,5 +17,3 @@ Verify if solved:
     (observation 2: loader tells renderer to remove chunks with meshes with size 0 and there is a lot of then, m_loaded_meshes is problematic because it stores all (also 0 size meshes))
     solution: use the goddamn member "empty" of m_loaded_meshes to check if mesh really needs to be removed
 * frustum culling sometimes removes too many chunks
-
-Solved:
