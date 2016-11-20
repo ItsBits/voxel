@@ -1,6 +1,5 @@
 #pragma once
 
-#define NEW_M
 #define RESET_QUEUE
 
 /*
@@ -61,12 +60,6 @@
 // TODO: expand
 struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
 
-// TODO: try pointers instead of index (what is faster?)
-struct Render { int index; iVec3 position; };
-struct Remove { int index; };
-// TODO: replace vertex vector by custom memory allocation (1 idea: have a large buffer for all meshes. once buffer full, hand over to render thread)
-struct Upload { int index; iVec3 position; std::vector<Vertex> mesh; };
-
 struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
 struct MeshMeta { iVec3 position; bool empty; };
@@ -74,18 +67,6 @@ struct MeshMeta { iVec3 position; bool empty; };
 struct ChunkMeta { int size; int offset; };
 
 enum class Status : char { UNLOADED, LOADED, CHECKED };
-
-/*
- * TODO: remove the struct Tasks
- * TODO: replace with command queue (ring buffer)
- *
- */
-struct Tasks
-{
-    std::vector<Remove> remove;
-    std::vector<Render> render;
-    std::vector<Upload> upload;
-};
 
 struct Command
 {
@@ -166,9 +147,6 @@ private:
     static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
     static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * MSIZE };
-#ifndef NEW_M
-    static constexpr int MESH_COUNT_NEEDED_FOR_RESET{ 16 };
-#endif
 
     static constexpr iVec3 CHUNK_SIZES{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
     static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
@@ -220,18 +198,10 @@ private:
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
 
-#ifdef NEW_M
     SparseMap<MeshWPos, MESH_CONTAINER_SIZE> m_meshes;
-#else
-    Mesh m_meshes_old[MESH_CONTAINER_SIZE]; // kind of mirrors m_mesh_positions
-#endif
 
     // shared / synchronization data
-#ifdef NEW_M
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
-#else
-    Tasks m_tasks[2]; // double buffering
-#endif
     iVec3 m_center[2];
     int m_back_buffer;
     std::atomic_bool m_quit;

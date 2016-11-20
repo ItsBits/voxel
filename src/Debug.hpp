@@ -13,21 +13,12 @@ public:
     template<typename T, typename ... Args>
     static void printDebug(const T & val, Args && ... args)
     {
-      if (!DISPLAY_DEBUG)
-          return;
-      else
+#ifndef NDEBUG
           printAlways(val, args ...);
+#endif
     }
 
 private:
-    static constexpr bool DISPLAY_DEBUG{
-#ifdef NDEBUG
-            false
-#else
-            true
-#endif
-    };
-
     static std::mutex m_lock;
 
     template<typename T, typename ... Args>

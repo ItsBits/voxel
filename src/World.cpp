@@ -42,11 +42,7 @@ World::World() :
     m_mesh_positions[0] = { 1, 0, 0 };
 
     for (auto & i : m_blocks) i = { 0 };
-#ifdef NEW_M
-    // default construction of m_meshes
-#else
-    for (auto & i : m_meshes_old) i = { 0, 0, 0 };
-#endif
+
     for (auto & i : m_regions)
     {
         i.position = { 0, 0, 0 };
@@ -98,7 +94,6 @@ World::~World()
     // cleanup
     for (auto & i : m_regions) std::free(i.data);
 
-#ifdef NEW_M
     // delete vertex and vao buffers from active meshes
     const auto * i = m_meshes.begin();
     const auto * end = m_meshes.end();
@@ -115,24 +110,6 @@ World::~World()
 
         m_meshes.reset();
     }
-#else
-    // delete vertex and vao buffers from active meshes
-    for (auto mesh_index = 0; mesh_index < MESH_CONTAINER_SIZE; ++mesh_index)
-    {
-        auto & mesh_data = m_meshes_old[mesh_index];
-
-        // only both equal to 0 or both not equal to 0 is valid
-        if (mesh_data.VAO == 0 && mesh_data.VBO == 0) continue;
-        assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "Active buffers should not be 0.");
-
-        glDeleteVertexArrays(1, &mesh_data.VAO);
-        glDeleteBuffers(1, &mesh_data.VBO);
-
-        mesh_data.VAO = 0;
-        mesh_data.VBO = 0;
-        mesh_data.size = 0;
-    }
-#endif
 
     // delete vertex and vao buffers from unused meshes
     while (!m_unused_buffers.empty())
@@ -614,15 +591,6 @@ void World::meshLoader()
 
         const iVec3 center = m_center[m_back_buffer];
 
-#ifndef NEW_M
-        Tasks & tasks = m_tasks[m_back_buffer];
-
-        // reset
-        tasks.remove.clear();
-        tasks.render.clear();
-        tasks.upload.clear();
-#endif
-
         //for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
         bool buffer_stall = false;
@@ -642,7 +610,6 @@ void World::meshLoader()
             {
                 if (!m_loaded_meshes[i].empty)
                 {
-#ifdef NEW_M
                     Command * command = m_commands.initPush();
                     if (command != nullptr)
                     {
@@ -656,19 +623,12 @@ void World::meshLoader()
                         buffer_stall = true;
                         break;
                     }
-#else
-                    tasks.remove.push_back({ mesh_index });
-#endif
                 }
                 m_loaded_meshes[i] = m_loaded_meshes[--count];
                 m_mesh_loaded[mesh_index] = Status::UNLOADED;
             }
             else
             {
-#ifndef NEW_M
-                if (!m_loaded_meshes[i].empty)
-                    tasks.render.push_back({ mesh_index, m_loaded_meshes[i].position });
-#endif
                 m_mesh_loaded[mesh_index] = Status::LOADED;
                 ++i;
             }
@@ -695,11 +655,7 @@ void World::meshLoader()
             m_check_list.push(center_mesh);
 
             // breadth first search finds all borders of loaded are and loads it
-#ifdef NEW_M
             while (!m_check_list.empty() && !m_moved_far)
-#else
-            while (!m_check_list.empty() && tasks.upload.size() < MESH_COUNT_NEEDED_FOR_RESET && !m_moved_far)
-#endif
             {
                 const auto current = m_check_list.front();
 
@@ -716,7 +672,6 @@ void World::meshLoader()
                     new_stuff_found = true;
                     if (meshStatus(current) != MeshCache::Status::EMPTY)
                     {
-#ifdef NEW_M
                         Command *command = m_commands.initPush();
                         if (command == nullptr)
                         {
@@ -724,7 +679,7 @@ void World::meshLoader()
                             buffer_stall = true;
                             break;
                         }
-#endif
+
                         const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
                         const auto to_block = from_block + MESH_SIZES;
                         // TODO: paralelize next two lines?
@@ -734,22 +689,17 @@ void World::meshLoader()
                         if (mesh.size() > 0)
                         {
                             setMeshStatus(current, MeshCache::Status::NON_EMPTY);
-#ifdef NEW_M
+
                             command->type = Command::Type::UPLOAD;
                             command->index = current_index;
                             command->position = current;
                             command->mesh = mesh;
                             m_commands.commitPush();
-#else
-                            tasks.upload.push_back({current_index, current, mesh});
-#endif
                         }
                         else
                         {
                             setMeshStatus(current, MeshCache::Status::EMPTY);
-#ifdef NEW_M
                             m_commands.discardPush();
-#endif
                         }
                         //m_mesh_loaded[current_index] = Status::CHECKED;
                         m_loaded_meshes.push_back({ current, mesh.size() == 0 });
@@ -786,11 +736,6 @@ void World::meshLoader()
         if (buffer_stall)
             Debug::print("Resetting command buffer is full.");
 
-#ifndef NEW_M
-        Debug::print("Render: ", tasks.render.size());
-        Debug::print("Upload: ", tasks.upload.size());
-        Debug::print("Remove: ", tasks.remove.size());
-#endif
         {
             // request task buffer swap wait for it
             std::unique_lock<std::mutex> lock{ m_lock };
@@ -833,9 +778,7 @@ bool World::inRange(const iVec3 center_block, const iVec3 position_block, const 
 //==============================================================================
 void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 {
-#ifndef NEW_M
-    Tasks & tasks = m_tasks[(m_back_buffer + 1) % 2];
-#endif
+    // TODO: make center atomic and don't double buffer ?
     m_center[(m_back_buffer + 1) % 2] = new_center;
 
     const auto delta_movement = new_center - m_center[m_back_buffer];
@@ -843,29 +786,14 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     const auto moved_far = square_distance >= SQUARE_LOAD_RESET_DISTANCE;
     m_moved_far = m_moved_far || moved_far; // set as soon as outside range once
 
-#ifdef NEW_M
     Command * command = m_commands.initPop();
-#endif
 
     // TODO: combine REMOVE and UPLOAD if-statement
 
-    // remove
-#ifdef NEW_M
+    // remove out of range chunks
     if (command != nullptr && command->type == Command::Type::REMOVE)
-#else
-    if (!tasks.remove.empty())
-#endif
     {
-#ifndef NEW_M
-        const Remove & task = tasks.remove.back();
-#endif
-
-#ifdef NEW_M
         const auto & mesh_data = m_meshes.get(command->index)->data.mesh;
-#else
-        auto & mesh_data = m_meshes_old[task.index];
-#endif
-
 #if 1
         assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
         m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
@@ -874,30 +802,13 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
         glDeleteVertexArrays(1, &mesh_data.VAO);
 #endif
 
-#ifdef NEW_M
         m_meshes.del(command->index);
-#else
-        mesh_data.VAO = 0;
-        mesh_data.VBO = 0;
-#endif
-
-#ifdef NEW_M
         m_commands.commitPop();
-#else
-        tasks.remove.pop_back();
-#endif
     }
 
     // upload only after nothing left to remove
-#ifdef NEW_M
     if (command != nullptr && command->type == Command::Type::UPLOAD)
-#else
-    if (!tasks.upload.empty() && tasks.remove.empty())
-#endif
     {
-#ifndef NEW_M
-        const Upload & task = tasks.upload.back();
-#endif
         GLuint VAO = 0, VBO = 0;
         if (!m_unused_buffers.empty())
         {
@@ -928,49 +839,23 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 
           glBindVertexArray(0);
         }
-#ifdef NEW_M
         assert(command->mesh.size() > 0 && "Mesh size must be over 0.");
-#else
-        assert(task.mesh.size() > 0 && "Mesh size must be over 0.");
-#endif
+
         assert(VAO != 0 && VBO != 0 && "Failed to gent VAO and VBO for mesh.");
 
         // upload mesh
-#ifdef NEW_M
         glBufferData(GL_ARRAY_BUFFER, command->mesh.size() * sizeof(command->mesh[0]), command->mesh.data(), GL_STATIC_DRAW);
         // fast multiply by 1.5
         const int EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
         QuadEBO::resize(EBO_size);
-#else
-        glBufferData(GL_ARRAY_BUFFER, task.mesh.size() * sizeof(task.mesh[0]), task.mesh.data(), GL_STATIC_DRAW);
-        // fast multiply by 1.5
-        const int EBO_size = static_cast<int>((task.mesh.size() >> 1) + task.mesh.size());
-        QuadEBO::resize(EBO_size);
-#endif
 
-
-#ifdef NEW_M
         m_meshes.add(command->index, { { VAO, VBO, EBO_size }, command->position });
-#else
-        assert(m_meshes_old[task.index].VAO == 0 && m_meshes_old[task.index].VBO == 0 && "Buffers not cleaned up.");
-        m_meshes_old[task.index].VAO = VAO;
-        m_meshes_old[task.index].VBO = VBO;
 
-        tasks.render.push_back({ task.index, task.position });
-
-        m_meshes_old[task.index].size = EBO_size;
-
-#endif
-#ifdef NEW_M
         command->mesh.clear(); // does not deallocate to reduce space but whatever TODO: should replace with flat array anyway
         m_commands.commitPop();
-#else
-        tasks.upload.pop_back();
-#endif
     }
 
     // render
-#ifdef NEW_M
     const auto * i = m_meshes.begin();
     const auto * end = m_meshes.end();
     for (; i != end; ++i)
@@ -993,35 +878,9 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
             glBindVertexArray(0);
         }
     }
-#else
-    for (auto & m : tasks.render)
-    {
-        // only render if not too far away
-        // TODO: could be combined with frustum culling (make far frustum sqrt(SQUARE_RENDER_DISTACE) away)
-        static_assert(!(MESH_SIZE_X % 2 || MESH_SIZE_Y % 2 || MESH_SIZE_Z % 2), "Assuming even mesh sizes");
-        if (!inRange(new_center, m.position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
-            continue;
-
-        if (meshInFrustum(frustum_planes, m.position * MESH_SIZES + MESH_OFFSETS))
-        {
-            const auto & mesh_data = m_meshes_old[m.index];
-
-            assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
-            assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and VBO not loaded.");
-
-            glBindVertexArray(mesh_data.VAO);
-            glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
-            glBindVertexArray(0);
-        }
-    }
-#endif
 
     // swap task buffers if loader ready
-#ifdef NEW_M
     if (command == nullptr)
-#else
-    if (tasks.upload.empty() && tasks.remove.empty())
-#endif
     {
         std::unique_lock<std::mutex> lock{ m_lock };
         if (m_loader_waiting)
