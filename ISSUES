@@ -5,7 +5,9 @@ Issues:
 * verify correctness of multi threading, chunk loading / unloading (memory leaks / data loss)
 
 * chunk loading feels unresponsive when moving far (again)
-    this time, loader thinks that "all chunks are loaded" when mobing out of loaded chunk range and goes to sleep for SLEEP_MS
+    this time, loader thinks that "all chunks are loaded" when moving out of loaded chunk range and goes to sleep for SLEEP_MS.
+    Reevaluate the chunk loading order algorithm. searching for all neighbors of loaded area becomes slow with increasing area.
+    Maybe queue should be reset after x number of new chunks are found ?
 
 Verify if solved:
 

@@ -5,7 +5,7 @@ class Profiler
 public:
     Profiler() = delete;
 
-    enum class Task : int { ChunksLoaded, MeshesGenerated, last };
+    enum class Task : int { ChunksLoaded, MeshesGenerated, DeleteCommandsSubmitted, last };
 
     static void add(Task task, int value)
     {

@@ -23,6 +23,8 @@ set(SOURCE_FILES
         src/Debug.hpp src/Debug.cpp
         src/Profiler.hpp src/Profiler.cpp
         src/Settings.hpp
+        src/RingBufferSingleProducerSingleConsumer.hpp
+        src/SparseMap.hpp
         )
 
 add_executable(voxel ${SOURCE_FILES})

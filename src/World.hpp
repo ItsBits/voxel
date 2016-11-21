@@ -107,7 +107,7 @@ private:
 
     static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
 
-    static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * MSIZE };
+    static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * 2 };
 
     static constexpr iVec3 CHUNK_SIZES{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
     static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
@@ -121,8 +121,11 @@ private:
     static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
+    static constexpr int SLEEP_MS{ 100 };
+    static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
+    static constexpr int MESHES_TO_LOAD_PER_LOOP{ 32 };
 
-    static constexpr int SLEEP_MS{ 500 };
+    static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
 
     //==============================================================================
     // variables
@@ -135,7 +138,12 @@ private:
     iVec3 m_mesh_positions[MESH_CONTAINER_SIZE];
     // TODO: more space efficient format than current (3 states only needed)
     Status m_mesh_loaded[MESH_CONTAINER_SIZE];
+
+    /************/
+    // TODO: replace by data structure that is sorted by distance. this will eliminate many responsivenes issues (see ISSUES). this will eliminate the need for MESHES_TO_LOAD_PER_LOOP
     std::queue<iVec3> m_check_list;
+    /************/
+
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
     struct Region

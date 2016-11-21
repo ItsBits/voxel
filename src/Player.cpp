@@ -26,7 +26,7 @@ const float Player::MAX_PITCH{ (PI<float> / 2.0f) - 0.001f };
 const float Player::INVERSE_MOUSE_SENSITIVITY{ 200.0f };
 
 //==============================================================================
-Player::Player() : Player{ { 0.0f, 0.0f, 0.0f}, 0.5f * 3.14f, 0.0f } {}
+Player::Player() : Player{ { 0.0f, 15.0f, 0.0f}, 0.5f * 3.14f, 0.0f } {}
 
 //==============================================================================
 Player::Player(glm::vec3 position, float yaw, float pitch) :

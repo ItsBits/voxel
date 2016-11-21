@@ -611,6 +611,7 @@ void World::meshLoader()
                         command->type = Command::Type::REMOVE;
                         command->index = mesh_index;
                         m_commands.commitPush();
+                        Profiler::add(Profiler::Task::DeleteCommandsSubmitted, 1);
                     }
                     else
                     {
@@ -650,8 +651,9 @@ void World::meshLoader()
 
             m_check_list.push(center_mesh);
 
+            int meshes_loaded = 0;
             // breadth first search finds all borders of loaded are and loads it
-            while (!m_check_list.empty() && !moved_far)
+            while (!m_check_list.empty() && !moved_far && meshes_loaded < MESHES_TO_LOAD_PER_LOOP)
             {
                 const auto current = m_check_list.front();
 
@@ -691,6 +693,7 @@ void World::meshLoader()
                             command->position = current;
                             command->mesh = mesh;
                             m_commands.commitPush();
+                            ++meshes_loaded;
                         }
                         else
                         {
@@ -731,15 +734,19 @@ void World::meshLoader()
 
         if (moved_far)
             Debug::print("Resetting because moved far.");
+
         if (buffer_stall)
             Debug::print("Resetting command buffer is full.");
 
         // TODO: increase the ratio by generating meshes in bulk
         const int loaded_c = Profiler::get(Profiler::Task::ChunksLoaded);
         const int loaded_m = Profiler::get(Profiler::Task::MeshesGenerated);
+        const auto command_delete_times = Profiler::get(Profiler::Task::DeleteCommandsSubmitted);
+
         Debug::print(
                      "Chunks loaded: ", loaded_c,
                      " Meshes generated: ", loaded_m,
+                     " Deletions requested: ", command_delete_times,
                      " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
         );
 
@@ -777,74 +784,88 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
         m_moved_far = true;
     }
 
-    Command * command = m_commands.initPop();
+    Command * command = nullptr;
+    int commands_executed = 0;
 
-    // TODO: combine REMOVE and UPLOAD if-statement
-
-    // remove out of range chunks
-    if (command != nullptr && command->type == Command::Type::REMOVE)
+    do
     {
-        const auto & mesh_data = m_meshes.get(command->index)->data.mesh;
-#if 1
-        assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
-        m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
-#else
-        glDeleteBuffers(1, &mesh_data.VBO);
-        glDeleteVertexArrays(1, &mesh_data.VAO);
-#endif
+        command = m_commands.initPop();
 
-        m_meshes.del(command->index);
-        m_commands.commitPop();
-    }
+        // TODO: combine REMOVE and UPLOAD if-statement
 
-    // upload only after nothing left to remove
-    if (command != nullptr && command->type == Command::Type::UPLOAD)
-    {
-        GLuint VAO = 0, VBO = 0;
-        if (!m_unused_buffers.empty())
+        // remove out of range chunks
+        if (command != nullptr && command->type == Command::Type::REMOVE)
         {
-            const auto & top = m_unused_buffers.top();
+            const auto &mesh_data = m_meshes.get(command->index)->data.mesh;
 
-            VAO = top.VAO;
-            VBO = top.VBO;
+            if (true)
+            {
+                assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
+                m_unused_buffers.push({mesh_data.VAO, mesh_data.VBO});
+            }
+            else
+            {
+                glDeleteBuffers(1, &mesh_data.VBO);
+                glDeleteVertexArrays(1, &mesh_data.VAO);
+            }
 
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-            m_unused_buffers.pop();
+            m_meshes.del(command->index);
+            m_commands.commitPop();
         }
-        else
+
+        // upload only after nothing left to remove
+        else if (command != nullptr && command->type == Command::Type::UPLOAD) // else if because of m_commands.commitPop(); in previous if !!! => data race in ring buffer
         {
-          glGenVertexArrays(1, &VAO);
-          glGenBuffers(1, &VBO);
+            GLuint VAO = 0, VBO = 0;
+            if (!m_unused_buffers.empty())
+            {
+                const auto &top = m_unused_buffers.top();
 
-          glBindVertexArray(VAO);
-          glBindBuffer(GL_ARRAY_BUFFER, VBO);
-          QuadEBO::bind();
+                VAO = top.VAO;
+                VBO = top.VBO;
 
-          glVertexAttribIPointer(0, 3, GL_INT, sizeof(Vertex), (GLvoid*)(0));
-          glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid*)(sizeof(Vertex::position)));
-          glVertexAttribIPointer(2, 4, GL_UNSIGNED_BYTE, sizeof(Vertex), (GLvoid*)(sizeof(Vertex::position) + sizeof(Vertex::type)));
-          glEnableVertexAttribArray(0);
-          glEnableVertexAttribArray(1);
-          glEnableVertexAttribArray(2);
+                glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
-          glBindVertexArray(0);
+                m_unused_buffers.pop();
+            }
+            else
+            {
+                glGenVertexArrays(1, &VAO);
+                glGenBuffers(1, &VBO);
+
+                glBindVertexArray(VAO);
+                glBindBuffer(GL_ARRAY_BUFFER, VBO);
+                QuadEBO::bind();
+
+                glVertexAttribIPointer(0, 3, GL_INT, sizeof(Vertex), (GLvoid *) (0));
+                glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));
+                glVertexAttribIPointer(2, 4, GL_UNSIGNED_BYTE, sizeof(Vertex),
+                                       (GLvoid *) (sizeof(Vertex::position) + sizeof(Vertex::type)));
+                glEnableVertexAttribArray(0);
+                glEnableVertexAttribArray(1);
+                glEnableVertexAttribArray(2);
+
+                glBindVertexArray(0);
+            }
+            assert(command->mesh.size() > 0 && "Mesh size must be over 0.");
+
+            assert(VAO != 0 && VBO != 0 && "Failed to gent VAO and VBO for mesh.");
+
+            // upload mesh
+            glBufferData(GL_ARRAY_BUFFER, command->mesh.size() * sizeof(command->mesh[0]), command->mesh.data(),
+                         GL_STATIC_DRAW);
+            // fast multiply by 1.5
+            const int EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
+            QuadEBO::resize(EBO_size);
+
+            m_meshes.add(command->index, {{VAO, VBO, EBO_size}, command->position});
+
+            // TODO: make loader thread clean up this data
+            command->mesh.clear(); // does not deallocate to reduce space but whatever TODO: should replace with flat array anyway
+            m_commands.commitPop();
         }
-        assert(command->mesh.size() > 0 && "Mesh size must be over 0.");
-
-        assert(VAO != 0 && VBO != 0 && "Failed to gent VAO and VBO for mesh.");
-
-        // upload mesh
-        glBufferData(GL_ARRAY_BUFFER, command->mesh.size() * sizeof(command->mesh[0]), command->mesh.data(), GL_STATIC_DRAW);
-        // fast multiply by 1.5
-        const int EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
-        QuadEBO::resize(EBO_size);
-
-        m_meshes.add(command->index, { { VAO, VBO, EBO_size }, command->position });
-
-        command->mesh.clear(); // does not deallocate to reduce space but whatever TODO: should replace with flat array anyway
-        m_commands.commitPop();
     }
+    while(command != nullptr && commands_executed++ < MAX_COMMANDS_PER_FRAME);
 
     // render
     const auto * i = m_meshes.begin();
