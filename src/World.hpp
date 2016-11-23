@@ -6,6 +6,7 @@
 #include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
 #include "Block.hpp"
+#include "SphereIterator.hpp"
 #include <string>
 #include <vector>
 #include <GL/gl3w.h>
@@ -143,6 +144,9 @@ private:
     // TODO: replace by data structure that is sorted by distance. this will eliminate many responsivenes issues (see ISSUES). this will eliminate the need for MESHES_TO_LOAD_PER_LOOP
     std::queue<iVec3> m_check_list;
     /************/
+    static constexpr int MAX_RENDER_DISTANCE{ std::max(std::max(RENDER_DISTANCE_X, RENDER_DISTANCE_Y), RENDER_DISTANCE_Z) };
+    static constexpr int MAX_CHUNK_SIZE{ std::max(std::max(CHUNK_SIZE_X, CHUNK_SIZE_Y), CHUNK_SIZE_Z) };
+    SphereIterator<(MAX_RENDER_DISTANCE + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE> m_iterator;
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
@@ -185,6 +189,7 @@ private:
     void generateChunk(const iVec3 from_block);
     void sineChunk(const iVec3 from_block);
     void debugChunk(const iVec3 from_block);
+    void meshLoaderOld();
     void meshLoader();
     bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
     void exitLoaderThread();
