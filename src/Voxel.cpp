@@ -21,7 +21,7 @@ static const Texture::Filtering BLOCK_TEXTURE_FILTERING
 
 //==============================================================================
 Voxel::Voxel(const std::string & name) :
-    m_window{ Window::Hints{ 3, 1, 1, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, false, 960, 540 } },
+    m_window{ Window::Hints{ 3, 1, 1, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, true, 960, 540 } },
     m_block_shader{
             {
                     { "shader/block.vert", GL_VERTEX_SHADER },

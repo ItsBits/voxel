@@ -123,7 +123,7 @@ private:
     static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
-    static constexpr int SLEEP_MS{ 500 };
+    static constexpr int SLEEP_MS{ 100 };
     static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
     static constexpr int MESHES_TO_LOAD_PER_LOOP{ 32 };
 
