@@ -18,7 +18,7 @@ const constexpr T PI = T(3.1415926535897932384626433832795);
 //==============================================================================
 const float Player::SPEED_MIN{ 0.1f };
 const float Player::SPEED_MAX{ 100.0f };
-const float Player::SPEED_DEAFULT{ 50.0f };
+const float Player::SPEED_DEAFULT{ 200.0f };
 const float Player::SPEED_CHANGE_FACTOR{ 3.0f };
 const float Player::TIME_TO_MAX_SPEED{ 0.15f };
 const glm::vec3 Player::WORLD_UP{ 0.0f, 1.0f, 0.0f };

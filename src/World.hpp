@@ -59,7 +59,8 @@ private:
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
-            MCSIZE{ 48 },
+            //MCSIZE{ 48 },
+            MCSIZE{ (REDISTANCE * 2) / MSIZE + 8 },
             MESH_BORDER_REQUIRED_SIZE{ 1 },
             MOFF{ MESH_BORDER_REQUIRED_SIZE + 3 }, // or maybe do chunk_size / 2
             //MOFF{ 0 },
@@ -122,7 +123,7 @@ private:
     static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
-    static constexpr int SLEEP_MS{ 100 };
+    static constexpr int SLEEP_MS{ 500 };
     static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
     static constexpr int MESHES_TO_LOAD_PER_LOOP{ 32 };
 
@@ -156,7 +157,7 @@ private:
         ChunkMeta metas[REGION_SIZE];
         Bytef * data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
-        // TODO: m_region_needs_save flag indicating whether region was changed and needs to be saved to drive again
+        bool needs_save;
     } m_regions[REGION_CONTAINER_SIZE];
 
     struct MeshCache
@@ -164,7 +165,7 @@ private:
         iVec3 position;
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
         Status statuses[MESH_REGION_SIZE];
-        // TODO: m_mesh_cache_needs_save flag indicating whether mesh cache was changed and needs to be saved to drive again
+        bool needs_save;
     } m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
 
     // renderer thread data

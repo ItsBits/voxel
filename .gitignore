@@ -1,3 +1,5 @@
 .idea/
 world/
 mesh_cache/
+cmake-build-debug/
+cmake-build-release/

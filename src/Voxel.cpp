@@ -11,6 +11,7 @@ static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
 {
         { "assets/blocks/grass.png", 1 },
         { "assets/blocks/sand.png", 2 },
+        { "assets/blocks/gosh.png", 3 }
 };
 static const Texture::Filtering BLOCK_TEXTURE_FILTERING
 {

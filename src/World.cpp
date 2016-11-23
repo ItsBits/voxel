@@ -7,7 +7,7 @@
 #include "Profiler.hpp"
 #include <cstring>
 #include <fstream>
-#include "Settings.hpp"
+//#include "Settings.hpp"
 
 //==============================================================================
 constexpr char World::WORLD_ROOT[];
@@ -47,6 +47,7 @@ World::World() :
         i.data = nullptr;
         i.size = 0;
         i.container_size = 0;
+        i.needs_save = false;
     }
     m_regions[0].position = { 1, 0, 0 };
 
@@ -54,6 +55,7 @@ World::World() :
     {
         i.position = { 0, 0, 0 };
         for (auto & s : i.statuses) s = MeshCache::Status::UNKNOWN;
+        i.needs_save = false;
     }
     m_mesh_cache_infos[0].position = { 1, 0, 0 };
 
@@ -71,7 +73,7 @@ World::~World()
 
     exitLoaderThread();
 
-    Debug::print("Saving chunks.");
+    Debug::print("Saving unsaved chunks.");
 
     // check all chunks if they need to be saved and save them
     for (auto chunk_index = 0; chunk_index < CHUNK_CONTAINER_SIZE; ++chunk_index)
@@ -189,9 +191,11 @@ void World::setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new
     auto & mesh_cache = m_mesh_cache_infos[mesh_cache_index];
 
     if (!all(mesh_cache.position == mesh_cache_position))
-      loadMeshCache(mesh_cache_position);
+        loadMeshCache(mesh_cache_position);
 
+    assert(mesh_cache.statuses[mesh_in_mesh_cache_index] != new_status && "Could indicate a bug.");
     mesh_cache.statuses[mesh_in_mesh_cache_index] = new_status;
+    m_mesh_cache_infos[mesh_cache_index].needs_save = true;
 }
 
 //==============================================================================
@@ -273,6 +277,8 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
 
         m_mesh_cache_infos[mesh_cache_index].position = mesh_cache_position;
     }
+
+    m_mesh_cache_infos[mesh_cache_index].needs_save = false;
 }
 
 //==============================================================================
@@ -566,14 +572,23 @@ void World::sineChunk(const iVec3 from_block)
     for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
       for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
       {
-        auto & block = getBlock(position);
+          auto & block = getBlock(position);
 #if 0
-        block = Block{ std::rand() % 300 == 0 };
+          block = Block{ std::rand() % 300 == 0 };
 #else
-        if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
-          std::rand() % 2 ? block = Block{ 1 } : block = Block{ 2 };
-        else
-          block = Block{ 0 };
+          if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
+          {
+              auto r = std::rand() % 16;
+
+              if (r < 3)
+                  block = Block{ 3 };
+              else if (r < 11)
+                  block = Block{ 2 };
+              else
+                  block = Block{ 1 };
+          }
+          else
+              block = Block{ 0 };
 #endif
       }
 }
@@ -659,6 +674,8 @@ void World::meshLoader()
                 assert(iterator < m_iterator.m_points.size() && "Out of bounds.");
                 const auto current = m_iterator.m_points[iterator++] + center_mesh;
 
+                //Debug::print("Load mesh: ", toString(current));
+
                 // or better just make the m_iterator size correct so break on iterator < m_iterator.m_points.size() is useful
                 if (!inRange(center, current * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
                     break;
@@ -689,7 +706,10 @@ void World::meshLoader()
 
                             if (mesh.size() > 0)
                             {
-                                setMeshStatus(current, MeshCache::Status::NON_EMPTY);
+                                // For when actually caching mesh gets implemented
+                                // assert(meshStatus(current) == MeshCache::Status::UNKNOWN && "Why load again?");
+                                if (meshStatus(current) == MeshCache::Status::UNKNOWN)
+                                    setMeshStatus(current, MeshCache::Status::NON_EMPTY);
 
                                 command->type = Command::Type::UPLOAD;
                                 command->index = current_index;
@@ -1165,12 +1185,14 @@ void World::saveChunkToRegion(const int chunk_index)
     m_regions[previous_region_index].metas[previous_chunk_in_region_index].offset = m_regions[previous_region_index].size;
 
     m_regions[previous_region_index].size += static_cast<int>(destination_length);
+    m_regions[previous_region_index].needs_save = true;
 }
 
 //==============================================================================
 void World::saveRegionToDrive(const int region_index)
 {
-    // TODO: only if changes have been made / not saved yet
+    if (!m_regions[region_index].needs_save)
+        return;
 
     const auto position = m_regions[region_index].position;
 
@@ -1196,7 +1218,8 @@ void World::saveRegionToDrive(const int region_index)
 //==============================================================================
 void World::saveMeshCacheToDrive(const int mesh_cache_index)
 {
-    // TODO: only if changes have been made / not saved yet
+    if (!m_mesh_cache_infos[mesh_cache_index].needs_save)
+        return;
 
     const auto position = m_mesh_cache_infos[mesh_cache_index].position;
 
