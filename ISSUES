@@ -9,6 +9,17 @@ Issues:
     Reevaluate the chunk loading order algorithm. searching for all neighbors of loaded area becomes slow with increasing area.
     Maybe queue should be reset after x number of new chunks are found ?
 
+* why is sometimes an outer ring loading and leawing empty space between?
+
+    ********
+   *        *
+  *   ****   *
+  *  ******  *
+  *  ******  *
+  *   ****   *
+   *        *
+    ********
+
 Verify if solved:
 
 Solved:

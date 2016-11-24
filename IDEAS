@@ -12,3 +12,5 @@
 * use mmap for faster io and maybe replace RAM copy of region by mmap
 
 * player position should be chunk relative for float accuracy instead of absolute
+
+* implicit remove meshes (remove on overwrite) + worker that searches for relly old chunks that are not used to remove them (maybe part of loader thread)

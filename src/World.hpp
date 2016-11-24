@@ -18,6 +18,7 @@
 #include <stack>
 #include <queue>
 
+// TODO: abstract and reuse repetitive data structures like 3D mod table, or m_mesh_cache_infos and m_regions
 
 // TODO: expand
 struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
@@ -129,6 +130,9 @@ private:
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
 
+    // static constexpr int MAX_MESH_DATA_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * 4 * 6 * sizeof(Vertex) };
+    static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
+
     //==============================================================================
     // variables
 
@@ -156,7 +160,7 @@ private:
         iVec3 position;
         ChunkMeta metas[REGION_SIZE];
         Bytef * data; // TODO: replace pointer with RAII mechanism
-        int size, container_size;
+        int size, container_size; // TODO: rename container_size to capacity
         bool needs_save;
     } m_regions[REGION_CONTAINER_SIZE];
 
@@ -165,7 +169,12 @@ private:
         iVec3 position;
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
         Status statuses[MESH_REGION_SIZE];
+        int size, container_size; // TODO: rename container_size to capacity
         bool needs_save;
+        int decompressed_size[MESH_REGION_SIZE];
+        int compressed_size[MESH_REGION_SIZE];
+        int offset[MESH_REGION_SIZE];
+        Bytef * data; // TODO: replace pointer with RAII mechanism
     } m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
 
     // renderer thread data
@@ -190,7 +199,7 @@ private:
     void generateChunk(const iVec3 from_block);
     void sineChunk(const iVec3 from_block);
     void debugChunk(const iVec3 from_block);
-    void meshLoaderOld();
+    //void meshLoaderOld();
     void meshLoader();
     bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
     void exitLoaderThread();
@@ -201,6 +210,8 @@ private:
     void saveRegionToDrive(const int region_index);
     void saveMeshCacheToDrive(const int mesh_cache_index);
     MeshCache::Status meshStatus(const iVec3 mesh_position);
-    void setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new_status);
+    //void setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new_status);
+    void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
+    std::vector<Vertex> loadMesh(const iVec3 mesh_position);
 
 };
