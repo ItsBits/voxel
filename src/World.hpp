@@ -21,6 +21,7 @@
 // TODO: abstract and reuse repetitive data structures like 3D mod table, or m_mesh_cache_infos and m_regions
 
 // TODO: expand
+// TODO: char instead of int position and type
 struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
 
 struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
@@ -56,7 +57,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 130 },
+            RDISTANCE{ 200 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },

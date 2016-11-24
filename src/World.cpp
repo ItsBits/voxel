@@ -706,7 +706,10 @@ void World::meshLoader()
 
                 // or better just make the m_iterator size correct so break on iterator < m_iterator.m_points.size() is useful
                 if (!inRange(center, current * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
+                {
+                    Debug::print("Break because out of range.");
                     break;
+                }
 
                 const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
 
@@ -723,7 +726,7 @@ void World::meshLoader()
                             {
                                 // command buffer stall
                                 buffer_stall = true;
-                                break;
+                                goto BREAK_LOOP; // because of stupid switch
                             }
 
                             const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
@@ -761,7 +764,7 @@ void World::meshLoader()
                             {
                                 // command buffer stall
                                 buffer_stall = true;
-                                break;
+                                goto BREAK_LOOP; // because of stupid switch
                             }
 
                             const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
@@ -830,6 +833,7 @@ void World::meshLoader()
                     //m_check_list.pop();
                 }
             }
+BREAK_LOOP: (void)0;
 
         }
 
@@ -1256,6 +1260,8 @@ void World::saveChunkToRegion(const int chunk_index)
     // TODO: profile how much it is compressed
     auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH), Z_BEST_SPEED);
 
+    //Debug::print("Compression ratio: ", static_cast<double>(destination_length) / SOURCE_LENGTH);
+
     assert(result == Z_OK && "Error compressing chunk.");
     assert(destination_length <= compressBound(static_cast<uLong>(SOURCE_LENGTH)) && "ZLib lied about the maximum possible size of compressed data.");
 
@@ -1376,6 +1382,8 @@ void World::saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Ver
 
     // TODO: profile how much it is compressed
     auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(mesh.data()), static_cast<uLong>(mesh.size() * sizeof(mesh[0])), Z_BEST_SPEED);
+
+    //Debug::print("Compression ratio: ", static_cast<double>(destination_length) / (mesh.size() * sizeof(mesh[0])));
 
     assert(result == Z_OK && "Error compressing mesh.");
     assert(destination_length <= compressBound(static_cast<uLong>(mesh.size() * sizeof(mesh[0]))) && "ZLib lied about the maximum possible size of compressed data.");
