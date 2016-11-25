@@ -33,6 +33,11 @@ World::World() :
         m_quit{ false },
         m_moved_far{ false }
 {
+//    auto t = delete_that_test.DIMENSIONS(1);
+    //auto x = delete_that_test.m_table[1];
+    //auto s = sizeof(ModTable<char, int, 2, 4, 6>);
+    //auto w = sizeof(delete_that_test);
+
     for (auto & i : m_chunk_positions) i = { 0, 0, 0 };
     for (auto & i : m_mesh_positions) i = { 0, 0, 0 };
     m_chunk_positions[0] = { 1, 0, 0 };
@@ -178,7 +183,8 @@ World::MeshCache::Status World::meshStatus(const iVec3 mesh_position)
     if (!all(mesh_cache.position == mesh_cache_position))
         loadMeshCache(mesh_cache_position);
 
-    return mesh_cache.statuses[mesh_in_mesh_cache_index];
+    //return mesh_cache.statuses[mesh_in_mesh_cache_index];
+    return mesh_cache.statuses[mesh_position];
 }
 
 //==============================================================================
@@ -274,7 +280,7 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
         cache.position = mesh_cache_position;
 
         std::free(cache.data); // get rid of old data
-        in_file.read(reinterpret_cast<char *>(cache.statuses), MESH_REGION_SIZE * sizeof(MeshCache::Status));
+        in_file.read(reinterpret_cast<char *>(cache.statuses.begin()), MESH_REGION_SIZE * sizeof(MeshCache::Status));
 
         in_file.read(reinterpret_cast<char *>(cache.decompressed_size), sizeof(cache.decompressed_size));
         in_file.read(reinterpret_cast<char *>(cache.compressed_size), sizeof(cache.compressed_size));
@@ -1321,7 +1327,7 @@ void World::saveMeshCacheToDrive(const int mesh_cache_index)
         std::string file_name = MESH_CACHE_ROOT + toString(position);
         std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
-        file.write(reinterpret_cast<const char *>(m_mesh_cache_infos[mesh_cache_index].statuses), MESH_REGION_SIZE * sizeof(MeshCache::Status));
+        file.write(reinterpret_cast<const char *>(m_mesh_cache_infos[mesh_cache_index].statuses.begin()), MESH_REGION_SIZE * sizeof(MeshCache::Status));
         file.write(reinterpret_cast<const char *>(m_mesh_cache_infos[mesh_cache_index].decompressed_size), sizeof(m_mesh_cache_infos[mesh_cache_index].decompressed_size));
         file.write(reinterpret_cast<const char *>(m_mesh_cache_infos[mesh_cache_index].compressed_size), sizeof(m_mesh_cache_infos[mesh_cache_index].compressed_size));
         file.write(reinterpret_cast<const char *>(m_mesh_cache_infos[mesh_cache_index].offset), sizeof(m_mesh_cache_infos[mesh_cache_index].offset));
@@ -1353,8 +1359,8 @@ void World::saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Ver
         loadMeshCache(mesh_cache_position);
 
     // save new mesh status
-    assert(mesh_cache.statuses[mesh_in_mesh_cache_index] != new_status && "Could indicate a bug.");
-    mesh_cache.statuses[mesh_in_mesh_cache_index] = new_status;
+    assert(mesh_cache.statuses[mesh_position] != new_status && "Could indicate a bug.");
+    mesh_cache.statuses[mesh_position] = new_status;
     m_mesh_cache_infos[mesh_cache_index].needs_save = true;
 
     if (new_status == MeshCache::Status::EMPTY)

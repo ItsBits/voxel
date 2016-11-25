@@ -25,7 +25,9 @@ set(SOURCE_FILES
         src/Settings.hpp
         src/RingBufferSingleProducerSingleConsumer.hpp
         src/SparseMap.hpp
-        src/SphereIterator.hpp)
+        src/SphereIterator.hpp
+        src/ModTable.hpp
+        )
 
 add_executable(voxel ${SOURCE_FILES})
 

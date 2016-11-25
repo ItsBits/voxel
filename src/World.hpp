@@ -17,6 +17,7 @@
 #include <atomic>
 #include <stack>
 #include <queue>
+#include "ModTable.hpp"
 
 // TODO: abstract and reuse repetitive data structures like 3D mod table, or m_mesh_cache_infos and m_regions
 
@@ -169,7 +170,8 @@ private:
     {
         iVec3 position;
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
-        Status statuses[MESH_REGION_SIZE];
+        //Status statuses[MESH_REGION_SIZE];
+        ModTable<Status, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> statuses;
         int size, container_size; // TODO: rename container_size to capacity
         bool needs_save;
         int decompressed_size[MESH_REGION_SIZE];

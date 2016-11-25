@@ -9,8 +9,8 @@ public:
 
     T v[S];
 
-    const T & operator () (int i) const { return v[i]; }
-    T & operator () (int i) { return v[i]; }
+    constexpr const T & operator () (int i) const { return v[i]; }
+    constexpr T & operator () (int i) { return v[i]; }
 };
 
 //==============================================================================
@@ -237,4 +237,31 @@ Vec<int, S> intFloor(const Vec<T, S> x)
     for (int i = 0; i < S; ++i) r(i) = static_cast<int>(x(i)) - (x(i) < T{ 0 });
 
     return r;
+}
+
+//==============================================================================
+template<typename T, int S>
+constexpr T product(const Vec<T, S> x, const int i = 0)
+{
+    //T r = T{ 0 };
+    //for (int i = 0; i < S; ++i) r *= x(i);
+    //return r;
+
+    return (i < S) ? x(i) * product(x, i + 1) : T{ 1 };
+}
+
+//==============================================================================
+template<typename T, int S>
+constexpr T sum(const Vec<T, S> x, const int i = 0)
+{
+    return (i < S) ? x(i) + product(x, i + 1) : T{ 0 };
+}
+
+//==============================================================================
+template<typename T, int S>
+constexpr bool largerZero(const Vec<T, S> x, const int i = 0)
+{
+  return (i < S) ?
+                   (x(i) > T{ 0 } ? largerZero(x, i + 1) : false)
+                   : true;
 }
