@@ -170,4 +170,5 @@ void Voxel::run()
     }
 
     m_window.unlockMouse();
+    m_window.swapResizeClearBuffer();
 }

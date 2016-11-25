@@ -141,11 +141,17 @@ private:
     // loader thread data
     std::thread m_loader_thread;
     Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE];
-    iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE];
-    bool m_needs_save[CHUNK_CONTAINER_SIZE];
-    iVec3 m_mesh_positions[MESH_CONTAINER_SIZE];
+    //iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE];
+    //bool m_needs_save[CHUNK_CONTAINER_SIZE];
+
+    // TODO: rename needs_save to dirty or changed or modified
+    struct ChunkStatus { iVec3 position; bool needs_save; };
+    ModTable<ChunkStatus, int, CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z> m_chunk_statuses;
+
+    //iVec3 m_mesh_positions[MESH_CONTAINER_SIZE];
     // TODO: more space efficient format than current (3 states only needed)
-    Status m_mesh_loaded[MESH_CONTAINER_SIZE];
+    //Status m_mesh_loaded[MESH_CONTAINER_SIZE];
+    ModTable<Status, int, MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z> m_mesh_loaded;
 
     static constexpr int MAX_RENDER_DISTANCE{ std::max(std::max(RENDER_DISTANCE_X, RENDER_DISTANCE_Y), RENDER_DISTANCE_Z) };
     static constexpr int MAX_CHUNK_SIZE{ std::max(std::max(CHUNK_SIZE_X, CHUNK_SIZE_Y), CHUNK_SIZE_Z) };
@@ -157,10 +163,12 @@ private:
     {
         iVec3 position;
         ModTable<ChunkMeta, int, REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z> metas;
-        Bytef * data; // TODO: replace pointer with RAII mechanism
+        Bytef *data; // TODO: replace pointer with RAII mechanism
         int size, container_size; // TODO: rename container_size to capacity
         bool needs_save;
-    } m_regions[REGION_CONTAINER_SIZE];
+    };
+    //} m_regions[REGION_CONTAINER_SIZE];
+    ModTable<Region, int, REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z> m_regions;
 
     struct MeshCache {
         iVec3 position;
@@ -208,8 +216,8 @@ private:
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
-    void saveChunkToRegion(const int chunk_index);
-    void saveRegionToDrive(const int region_index);
+    void saveChunkToRegion(const iVec3 chunk_position);
+    void saveRegionToDrive(const iVec3 region_position);
     //void saveMeshCacheToDrive(const int mesh_cache_index);
     void saveMeshCacheToDrive(const MeshCache & mesh_cache, const iVec3 first_delete_that_it_s_just_for_testing);
     MeshCache::Status meshStatus(const iVec3 mesh_position);
