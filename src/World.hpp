@@ -58,7 +58,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 200 },
+            RDISTANCE{ 130 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -147,10 +147,6 @@ private:
     // TODO: more space efficient format than current (3 states only needed)
     Status m_mesh_loaded[MESH_CONTAINER_SIZE];
 
-    /************/
-    // TODO: replace by data structure that is sorted by distance. this will eliminate many responsivenes issues (see ISSUES). this will eliminate the need for MESHES_TO_LOAD_PER_LOOP
-    std::queue<iVec3> m_check_list;
-    /************/
     static constexpr int MAX_RENDER_DISTANCE{ std::max(std::max(RENDER_DISTANCE_X, RENDER_DISTANCE_Y), RENDER_DISTANCE_Z) };
     static constexpr int MAX_CHUNK_SIZE{ std::max(std::max(CHUNK_SIZE_X, CHUNK_SIZE_Y), CHUNK_SIZE_Z) };
     SphereIterator<(MAX_RENDER_DISTANCE + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE> m_iterator;
@@ -170,13 +166,13 @@ private:
     {
         iVec3 position;
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
-        //Status statuses[MESH_REGION_SIZE];
-        ModTable<Status, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> statuses;
         int size, container_size; // TODO: rename container_size to capacity
         bool needs_save;
-        int decompressed_size[MESH_REGION_SIZE];
-        int compressed_size[MESH_REGION_SIZE];
-        int offset[MESH_REGION_SIZE];
+        // TODO: maybe interlive the following 3 / 4 aka.: struct{ int decompressed_size, compressed_size, offset; }
+        ModTable<Status, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> statuses;
+        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> decompressed_size;
+        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> compressed_size;
+        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> offset;
         Bytef * data; // TODO: replace pointer with RAII mechanism
     } m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
 
