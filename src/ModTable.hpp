@@ -16,7 +16,9 @@ public:
     const T & operator[](Vec<I, sizeof...(D)> position) const;
     T & operator[](Vec<I, sizeof...(D)> position);
     T * begin() { return m_table; }
+    const T * begin() const { return m_table; }
     T * end() { return m_table + product(DIMENSIONS); }
+    const T * end() const { return m_table + product(DIMENSIONS); }
 
 private:
     static constexpr Vec<I, sizeof...(D)> DIMENSIONS{ D ... };
