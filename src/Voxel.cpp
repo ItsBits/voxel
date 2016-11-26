@@ -5,6 +5,7 @@
 #include "TinyAlgebraExtensions.hpp"
 #include "Debug.hpp"
 #include "Profiler.hpp"
+#include <glm/gtx/string_cast.hpp>
 
 //==============================================================================
 static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
@@ -115,7 +116,13 @@ void Voxel::run()
             last_fps_update = current_time;
 
 #if 1
-            m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)) + "\n");
+            const auto pos = m_player.getPosition();
+            const auto int_pos = intFloor(fVec3{ pos.x, pos.y, pos.z });
+            m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)) + "\n" +
+                                 std::to_string(int_pos(0)) + "|" +
+                                 std::to_string(int_pos(1)) + "|" +
+                                 std::to_string(int_pos(2))
+            );
 #else // demo
             m_screen_text.update(
                     "!\"#$%&\\'()*+,-./:;<=>?@[]^_`{|}~\n"
