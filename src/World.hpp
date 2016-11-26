@@ -140,7 +140,7 @@ private:
 
     // loader thread data
     std::thread m_loader_thread;
-    Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE];
+    Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE]; // TODO: use mod table
     //iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE];
     //bool m_needs_save[CHUNK_CONTAINER_SIZE];
 
@@ -170,18 +170,24 @@ private:
     //} m_regions[REGION_CONTAINER_SIZE];
     ModTable<Region, int, REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z> m_regions;
 
-    struct MeshCache {
+    struct MeshCache
+    {
         iVec3 position;
-        enum class Status : char {
+        enum class Status : char
+        {
             UNKNOWN, EMPTY, NON_EMPTY
         }; // could be reduced to bitmap (2 bits per mesh)
         int size, container_size; // TODO: rename container_size to capacity
         bool needs_save;
-        // TODO: maybe interlive the following 3 / 4 aka.: struct{ int decompressed_size, compressed_size, offset; }
-        ModTable<Status, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> statuses;
-        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> decompressed_size;
-        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> compressed_size;
-        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> offset;
+
+        struct MeshCacheInfo { Status status; int decompressed_size; int compressed_size; int offset; };
+        ModTable<MeshCacheInfo, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> info;
+
+//        ModTable<Status, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> statuses;
+//        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> decompressed_size;
+//        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> compressed_size;
+//        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> offset;
+
         Bytef *data; // TODO: replace pointer with RAII mechanism
     };
     //} m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
