@@ -92,11 +92,8 @@ private:
 
     static constexpr int CHUNK_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z };
     static constexpr int CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z };
-    static constexpr int REGION_CONTAINER_SIZE{ REGION_CONTAINER_SIZE_X * REGION_CONTAINER_SIZE_Y * REGION_CONTAINER_SIZE_Z };
-    static constexpr int MESH_REGION_CONTAINER_SIZE{ MESH_REGION_CONTAINER_SIZE_X * MESH_REGION_CONTAINER_SIZE_Y * MESH_REGION_CONTAINER_SIZE_Z };
     static constexpr int MESH_CONTAINER_SIZE{ MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z };
     static constexpr int REGION_SIZE{ REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z };
-    static constexpr int MESH_REGION_SIZE{ MESH_REGION_SIZE_X * MESH_REGION_SIZE_Y * MESH_REGION_SIZE_Z };
 
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
@@ -132,7 +129,6 @@ private:
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
 
-    // static constexpr int MAX_MESH_DATA_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z * 4 * 6 * sizeof(Vertex) };
     static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
 
     //==============================================================================
@@ -141,16 +137,11 @@ private:
     // loader thread data
     std::thread m_loader_thread;
     Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE]; // TODO: use mod table
-    //iVec3 m_chunk_positions[CHUNK_CONTAINER_SIZE];
-    //bool m_needs_save[CHUNK_CONTAINER_SIZE];
 
-    // TODO: rename needs_save to dirty or changed or modified
     struct ChunkStatus { iVec3 position; bool needs_save; };
     ModTable<ChunkStatus, int, CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z> m_chunk_statuses;
 
-    //iVec3 m_mesh_positions[MESH_CONTAINER_SIZE];
     // TODO: more space efficient format than current (3 states only needed)
-    //Status m_mesh_loaded[MESH_CONTAINER_SIZE];
     ModTable<Status, int, MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z> m_mesh_loaded;
 
     static constexpr int MAX_RENDER_DISTANCE{ std::max(std::max(RENDER_DISTANCE_X, RENDER_DISTANCE_Y), RENDER_DISTANCE_Z) };
@@ -164,10 +155,9 @@ private:
         iVec3 position;
         ModTable<ChunkMeta, int, REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z> metas;
         Bytef *data; // TODO: replace pointer with RAII mechanism
-        int size, container_size; // TODO: rename container_size to capacity
+        int size, container_size;
         bool needs_save;
     };
-    //} m_regions[REGION_CONTAINER_SIZE];
     ModTable<Region, int, REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z> m_regions;
 
     struct MeshCache
@@ -177,20 +167,14 @@ private:
         {
             UNKNOWN, EMPTY, NON_EMPTY
         }; // could be reduced to bitmap (2 bits per mesh)
-        int size, container_size; // TODO: rename container_size to capacity
+        int size, container_size;
         bool needs_save;
 
         struct MeshCacheInfo { Status status; int decompressed_size; int compressed_size; int offset; };
         ModTable<MeshCacheInfo, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> info;
 
-//        ModTable<Status, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> statuses;
-//        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> decompressed_size;
-//        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> compressed_size;
-//        ModTable<int, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> offset;
-
         Bytef *data; // TODO: replace pointer with RAII mechanism
     };
-    //} m_mesh_cache_infos[MESH_REGION_CONTAINER_SIZE];
     ModTable<MeshCache, int, MESH_REGION_CONTAINER_SIZE_X, MESH_REGION_CONTAINER_SIZE_Y, MESH_REGION_CONTAINER_SIZE_Z> m_mesh_cache_infos;
 
     // renderer thread data
@@ -215,7 +199,6 @@ private:
     void generateChunk(const iVec3 from_block);
     void sineChunk(const iVec3 from_block);
     void debugChunk(const iVec3 from_block);
-    //void meshLoaderOld();
     void meshLoader();
     bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
     void exitLoaderThread();
@@ -224,10 +207,8 @@ private:
     void loadMeshCache(const iVec3 mesh_cache_position);
     void saveChunkToRegion(const iVec3 chunk_position);
     void saveRegionToDrive(const iVec3 region_position);
-    //void saveMeshCacheToDrive(const int mesh_cache_index);
     void saveMeshCacheToDrive(const MeshCache & mesh_cache, const iVec3 first_delete_that_it_s_just_for_testing);
     MeshCache::Status meshStatus(const iVec3 mesh_position);
-    //void setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new_status);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
 

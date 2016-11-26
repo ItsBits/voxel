@@ -7,7 +7,6 @@
 #include "Profiler.hpp"
 #include <cstring>
 #include <fstream>
-//#include "Settings.hpp"
 
 //==============================================================================
 constexpr char World::WORLD_ROOT[];
@@ -33,19 +32,9 @@ World::World() :
         m_quit{ false },
         m_moved_far{ false }
 {
-//    auto t = delete_that_test.DIMENSIONS(1);
-    //auto x = delete_that_test.m_table[1];
-    //auto s = sizeof(ModTable<char, int, 2, 4, 6>);
-    //auto w = sizeof(delete_that_test);
-
-//    for (auto & i : m_chunk_positions) i = { 0, 0, 0 };
-//    m_chunk_positions[0] = { 1, 0, 0 };
     for (auto & status : m_chunk_statuses)
         status = { { 0, 0, 0 }, false };
     m_chunk_statuses[{ 0, 0, 0 }].position = { 1, 0, 0 };
-
-//    for (auto & i : m_mesh_positions) i = { 0, 0, 0 };
-//    m_mesh_positions[0] = { 1, 0, 0 };
 
     for (auto & i : m_blocks) i = { 0 };
 
@@ -66,19 +55,13 @@ World::World() :
         i.size = 0;
         i.container_size = 0;
         i.needs_save = false;
-//        for (auto & s : i.statuses) s = MeshCache::Status::UNKNOWN;
-//        for (auto & s : i.decompressed_size) s = 0;
-//        for (auto & s : i.compressed_size) s = 0;
-//        for (auto & s : i.offset) s = 0;
         for (auto & s : i.info) s = { MeshCache::Status::UNKNOWN, 0, 0, 0 };
         i.data = nullptr;
     }
     m_mesh_cache_infos[{ 0, 0, 0 }].position = { 1, 0, 0 };
 
-//    for (auto & i : m_needs_save) i = false;
     for (auto & i : m_mesh_loaded) i = Status::UNLOADED;
 
-    //std::atomic_thread_fence(std::memory_order_seq_cst);
     m_loader_thread = std::thread{ &World::meshLoader, this };
 }
 
@@ -92,24 +75,17 @@ World::~World()
     Debug::print("Saving unsaved chunks.");
 
     // check all chunks if they need to be saved and save them
-//    for (auto chunk_index = 0; chunk_index < CHUNK_CONTAINER_SIZE; ++chunk_index)
-//        if (m_needs_save[chunk_index])
-//            saveChunkToRegion(chunk_index);
     for (auto & chunk_status : m_chunk_statuses)
         if (chunk_status.needs_save) // TODO: check if this is this optional because saveChunkToRegions checks it?
             saveChunkToRegion(chunk_status.position);
 
     // save all valid regions
-//    for (auto region_index = 0; region_index < REGION_CONTAINER_SIZE; ++region_index)
-//        saveRegionToDrive(region_index);
     for (const auto & region : m_regions)
     {
         saveRegionToDrive(region.position);
     }
 
     // save all mesh caches to drive
-//    for (auto mesh_cache_index = 0; mesh_cache_index < MESH_REGION_CONTAINER_SIZE; ++mesh_cache_index)
-//        saveMeshCacheToDrive(mesh_cache_index);
     bool first_TODO_delete = true;
     for (const auto & mesh_cache : m_mesh_cache_infos)
     {
@@ -202,12 +178,6 @@ World::MeshCache::Status World::meshStatus(const iVec3 mesh_position)
 {
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
 
-    //const auto mesh_in_mesh_cache_relative = floorMod(mesh_position, MESH_REGION_SIZES);
-    //const auto mesh_in_mesh_cache_index = toIndex(mesh_in_mesh_cache_relative, MESH_REGION_SIZES);
-
-    //const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
-    //const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
-
     const auto & mesh_cache = m_mesh_cache_infos[mesh_cache_position];
 
     if (!all(mesh_cache.position == mesh_cache_position))
@@ -218,32 +188,8 @@ World::MeshCache::Status World::meshStatus(const iVec3 mesh_position)
 }
 
 //==============================================================================
-/*void World::setMeshStatus(const iVec3 mesh_position, const MeshCache::Status new_status)
-{
-    const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
-
-    const auto mesh_in_mesh_cache_relative = floorMod(mesh_position, MESH_REGION_SIZES);
-    const auto mesh_in_mesh_cache_index = toIndex(mesh_in_mesh_cache_relative, MESH_REGION_SIZES);
-
-    const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
-    const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
-
-    auto & mesh_cache = m_mesh_cache_infos[mesh_cache_index];
-
-    if (!all(mesh_cache.position == mesh_cache_position))
-        loadMeshCache(mesh_cache_position);
-
-    assert(mesh_cache.statuses[mesh_in_mesh_cache_index] != new_status && "Could indicate a bug.");
-    mesh_cache.statuses[mesh_in_mesh_cache_index] = new_status;
-    m_mesh_cache_infos[mesh_cache_index].needs_save = true;
-}*/
-
-//==============================================================================
 void World::loadRegion(const iVec3 region_position)
 {
-    //const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZES);
-    //const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZES);
-
     const auto old_position = m_regions[region_position].position;
 
     // return if already loaded
@@ -299,18 +245,11 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
     if (all(old_position == mesh_cache_position))
         return;
 
-#if 0
-    saveMeshCacheToDrive(mesh_cache_info, mesh_cache_position);
-#else
-    //const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
-    //const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
     if (all(floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES) == floorMod(mesh_cache_info.position, MESH_REGION_CONTAINER_SIZES)))
         saveMeshCacheToDrive(mesh_cache_info, mesh_cache_info.position);
-//      saveMeshCacheToDrive(mesh_cache_info, mesh_cache_position);
     else if (mesh_cache_info.needs_save)
         // TODO: just for debugging. remove that
         assert(0 && "Something is broken.");
-#endif
 
     std::string in_file_name = MESH_CACHE_ROOT + toString(mesh_cache_position);
     std::ifstream in_file{ in_file_name, std::ifstream::binary };
@@ -325,11 +264,6 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
 
         in_file.read(reinterpret_cast<char *>(&cache.size), sizeof(int));
 
-        //in_file.read(reinterpret_cast<char *>(cache.statuses.begin()), MESH_REGION_SIZE * sizeof(MeshCache::Status));
-        //in_file.read(reinterpret_cast<char *>(cache.decompressed_size.begin()), sizeof(cache.decompressed_size));
-        //in_file.read(reinterpret_cast<char *>(cache.compressed_size.begin()), sizeof(cache.compressed_size));
-        //in_file.read(reinterpret_cast<char *>(cache.offset.begin()), sizeof(cache.offset));
-
         in_file.read(reinterpret_cast<char *>(cache.info.begin()), sizeof(cache.info));
 
         cache.data = (Bytef *)std::malloc(static_cast<std::size_t>(cache.size));
@@ -340,40 +274,18 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
         if (!in_file.good()) std::runtime_error("Reading file failed.");
     }
     else
-    {/*
-        for (auto & i : m_mesh_cache_infos)
-        {
-            i.position = { 0, 0, 0 };
-            i.size = 0;
-            i.container_size = 0;
-            i.needs_save = false;
-//        for (auto & s : i.statuses) s = MeshCache::Status::UNKNOWN;
-//        for (auto & s : i.decompressed_size) s = 0;
-//        for (auto & s : i.compressed_size) s = 0;
-//        for (auto & s : i.offset) s = 0;
-            for (auto & s : i.info) s = { MeshCache::Status::UNKNOWN, 0, 0, 0 };
-            i.data = nullptr;
-        }
-        m_mesh_cache_infos[{ 0, 0, 0 }].position = { 1, 0, 0 };
-*/
-
+    {
         // construct new mesh cache
         for (auto & i : mesh_cache_info.info)
             i = { MeshCache::Status::UNKNOWN, 0, 0, 0 };
         mesh_cache_info.size = 0;
         mesh_cache_info.container_size = 0;
         mesh_cache_info.needs_save = false;
-        //for (auto & i : mesh_cache_info.statuses)
-            //i = MeshCache::Status::UNKNOWN;
 
         auto & cache = mesh_cache_info;
 
         cache.position = mesh_cache_position;
 
-        //cache.needs_save = false;
-        //for (auto & s : cache.decompressed_size) s = 0;
-        //for (auto & s : cache.compressed_size) s = 0;
-        //for (auto & s : cache.offset) s = 0;
         cache.data = nullptr;
     }
 
@@ -383,9 +295,6 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
 //==============================================================================
 int World::loadChunk(const iVec3 chunk_position)
 {
-    //const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZES);
-    //const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZES);
-
     auto & chunk_status = m_chunk_statuses[chunk_position];
 
     // if already loaded
@@ -394,18 +303,9 @@ int World::loadChunk(const iVec3 chunk_position)
 
     const auto region_position = floorDiv(chunk_position, REGION_SIZES);
 
-    //const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZES);
-    //const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZES);
-
-    //const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZES);
-    //const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZES);
-
     // save previous chunk
     if (chunk_status.needs_save)
-    {
-        //saveChunkToRegion(chunk_position);
         saveChunkToRegion(chunk_status.position);
-    }
 
     // load region of new chunk
     loadRegion(region_position);
@@ -677,9 +577,7 @@ void World::sineChunk(const iVec3 from_block)
       for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
       {
           auto & block = getBlock(position);
-#if 0
-          block = Block{ std::rand() % 300 == 0 };
-#else
+
           if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
           {
               auto r = std::rand() % 16;
@@ -693,7 +591,7 @@ void World::sineChunk(const iVec3 from_block)
           }
           else
               block = Block{ 0 };
-#endif
+
       }
 }
 
@@ -757,29 +655,15 @@ void World::meshLoader()
         // load new meshes
         if (!buffer_stall)
         {
-            /*
-            if (m_check_list.empty())
-            {
-                const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
-                m_check_list.push(center_mesh);
-            }*/
-
             const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
             int iterator = 0;
 
             // main loader loop
-            //while (!m_check_list.empty() && !m_moved_far)
             while (iterator < m_iterator.m_points.size() && !m_moved_far && !m_quit)
             {
-                // Debug::print("Queue size: ", m_check_list.size());
-
-                //const auto current = m_check_list.front();
-
                 // TODO: don't always start from scratch use reference positions from where to start when moving
                 assert(iterator < m_iterator.m_points.size() && "Out of bounds.");
                 const auto current = m_iterator.m_points[iterator++] + center_mesh;
-
-                //Debug::print("Load mesh: ", toString(current));
 
                 // or better just make the m_iterator size correct so break on iterator < m_iterator.m_points.size() is useful
                 if (!inRange(center, current * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
@@ -814,11 +698,6 @@ void World::meshLoader()
 
                             if (mesh.size() > 0)
                             {
-                                // For when actually caching mesh gets implemented
-                                // assert(meshStatus(current) == MeshCache::Status::UNKNOWN && "Why load again?");
-                                //if (meshStatus(current) == MeshCache::Status::UNKNOWN)
-                                    //setMeshStatus(current, MeshCache::Status::NON_EMPTY);
-
                                 command->type = Command::Type::UPLOAD;
                                 command->index = current_index;
                                 command->position = current;
@@ -827,7 +706,6 @@ void World::meshLoader()
                             }
                             else
                             {
-                                // setMeshStatus(current, MeshCache::Status::EMPTY);
                                 m_commands.discardPush();
                             }
                             saveMeshToMeshCache(current, mesh);
@@ -846,18 +724,12 @@ void World::meshLoader()
 
                             const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
                             //const auto to_block = from_block + MESH_SIZES;
-                            // TODO: paralelize next two lines?
-                            //loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
+                            // TODO: paralelize next line?
                             const auto mesh = loadMesh(current);
 
                             assert(mesh.size() != 0 && "Loaded empty mesh?");
                             if (mesh.size() > 0)
                             {
-                                // For when actually caching mesh gets implemented
-                                // assert(meshStatus(current) == MeshCache::Status::UNKNOWN && "Why load again?");
-                                //if (meshStatus(current) == MeshCache::Status::UNKNOWN)
-                                //setMeshStatus(current, MeshCache::Status::NON_EMPTY);
-
                                 command->type = Command::Type::UPLOAD;
                                 command->index = current_index;
                                 command->position = current;
@@ -866,11 +738,8 @@ void World::meshLoader()
                             }
                             else
                             {
-                                // setMeshStatus(current, MeshCache::Status::EMPTY);
                                 m_commands.discardPush();
                             }
-                            // saveMeshToMeshCache(current, mesh);
-
 
                             m_loaded_meshes.push_back({ current, mesh.size() == 0 });
                         }
@@ -882,16 +751,6 @@ void World::meshLoader()
                         {
                             assert(0 && "Invalid state.");
                         }
-
-                        // add neighbors
-                        //const iVec3 neighbours[6]{
-                        //        current + iVec3{1, 0, 0}, current + iVec3{0, 1, 0}, current + iVec3{0, 0, 1},
-                        //        current - iVec3{1, 0, 0}, current - iVec3{0, 1, 0}, current - iVec3{0, 0, 1},
-                        //};
-
-                        //for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
-                            //if (inRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
-                                //m_check_list.push(*pos);
 
                         // update mesh state
                         m_mesh_loaded[current] = Status::LOADED;
@@ -906,8 +765,6 @@ void World::meshLoader()
                     {
                         assert(0 && "Invalid state.");
                     }
-
-                    //m_check_list.pop();
                 }
             }
 BREAK_LOOP: (void)0;
@@ -924,190 +781,6 @@ BREAK_LOOP: (void)0;
 
     Debug::print("Exited loader thread.");
 }
-
-#if 0
-//==============================================================================
-void World::meshLoaderOld()
-{
-    while (!m_quit)
-    {
-        Profiler::resetAll();
-        Debug::print("New loader thread loop.");
-
-        const iVec3 center = m_center.load();
-
-        bool buffer_stall = false;
-        bool new_stuff_found = false;
-
-        // update remove and render in task list
-        std::size_t count = m_loaded_meshes.size();
-        Debug::print("Loaded meshes count: ", count);
-        for (std::size_t i = 0; i < count;)
-        {
-            const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
-
-            const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZES);
-            const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZES);
-
-            if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
-            {
-                if (!m_loaded_meshes[i].empty)
-                {
-                    Command * command = m_commands.initPush();
-                    if (command != nullptr)
-                    {
-                        command->type = Command::Type::REMOVE;
-                        command->index = mesh_index;
-                        m_commands.commitPush();
-                        Profiler::add(Profiler::Task::DeleteCommandsSubmitted, 1);
-                    }
-                    else
-                    {
-                        Debug::print("Command buffer is full.");
-                        buffer_stall = true;
-                        break;
-                    }
-                }
-                m_loaded_meshes[i] = m_loaded_meshes[--count];
-                m_mesh_loaded[mesh_index] = Status::UNLOADED;
-            }
-            else
-            {
-                m_mesh_loaded[mesh_index] = Status::LOADED;
-                ++i;
-            }
-
-        }
-        m_loaded_meshes.resize(count);
-
-        // WARNING: do not run mesh loader if buffer_stall is true,
-        // because it can cause memory leak on the GPU (although should be caught by SparseMap if NDEBUG is note defined)
-
-        bool moved_far = m_moved_far.exchange(false);
-
-        // if command buffer was full let renderer breathe for a bit
-        if (!buffer_stall)
-        {
-            // find meshes to generate and generate them
-
-            // add center mesh
-            const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
-
-#ifdef RESET_QUEUE
-            { decltype(m_check_list) empty; std::swap(m_check_list, empty); }
-#endif
-
-            m_check_list.push(center_mesh);
-
-            int meshes_loaded = 0;
-            // breadth first search finds all borders of loaded are and loads it
-            while (!m_check_list.empty() && !moved_far && meshes_loaded < MESHES_TO_LOAD_PER_LOOP)
-            {
-                const auto current = m_check_list.front();
-
-                const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
-
-                if (m_mesh_loaded[current_index] == Status::CHECKED)
-                {
-                    m_check_list.pop();
-                    continue;
-                }
-                // load
-                else if (m_mesh_loaded[current_index] == Status::UNLOADED)
-                {
-                    new_stuff_found = true;
-                    if (meshStatus(current) != MeshCache::Status::EMPTY)
-                    {
-                        Command *command = m_commands.initPush();
-                        if (command == nullptr)
-                        {
-                            // command buffer stall
-                            buffer_stall = true;
-                            break;
-                        }
-
-                        const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
-                        const auto to_block = from_block + MESH_SIZES;
-                        // TODO: paralelize next two lines?
-                        loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
-                        const auto mesh = generateMesh(from_block, to_block);
-
-                        if (mesh.size() > 0)
-                        {
-                            setMeshStatus(current, MeshCache::Status::NON_EMPTY);
-
-                            command->type = Command::Type::UPLOAD;
-                            command->index = current_index;
-                            command->position = current;
-                            command->mesh = mesh;
-                            m_commands.commitPush();
-                            ++meshes_loaded;
-                        }
-                        else
-                        {
-                            setMeshStatus(current, MeshCache::Status::EMPTY);
-                            m_commands.discardPush();
-                        }
-
-                        m_loaded_meshes.push_back({ current, mesh.size() == 0 });
-                    }
-                    else
-                    {
-                        m_loaded_meshes.push_back({ current, true });
-                    }
-                }
-                // push neighbours that are in render radius
-                else if (m_mesh_loaded[current_index] == Status::LOADED)
-                {
-                    const iVec3 neighbours[6]{
-                            current + iVec3{1, 0, 0}, current + iVec3{0, 1, 0}, current + iVec3{0, 0, 1},
-                            current - iVec3{1, 0, 0}, current - iVec3{0, 1, 0}, current - iVec3{0, 0, 1},
-                    };
-
-                    for (const iVec3 * pos = neighbours; pos < neighbours + 6; ++pos)
-                        if (inRange(center, *pos * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
-                            m_check_list.push(*pos);
-                }
-                else
-                {
-                    assert(0);
-                }
-
-                m_check_list.pop();
-                m_mesh_loaded[current_index] = Status::CHECKED;
-
-                moved_far = m_moved_far;
-            }
-        }
-
-        if (moved_far)
-            Debug::print("Resetting because moved far.");
-
-        if (buffer_stall)
-            Debug::print("Resetting command buffer is full.");
-
-        // TODO: increase the ratio by generating meshes in bulk
-        const int loaded_c = Profiler::get(Profiler::Task::ChunksLoaded);
-        const int loaded_m = Profiler::get(Profiler::Task::MeshesGenerated);
-        const auto command_delete_times = Profiler::get(Profiler::Task::DeleteCommandsSubmitted);
-
-        Debug::print(
-                     "Chunks loaded: ", loaded_c,
-                     " Meshes generated: ", loaded_m,
-                     " Deletions requested: ", command_delete_times,
-                     " Ratio: ", static_cast<float>(loaded_m) / static_cast<float>(loaded_c)
-        );
-
-        if (!new_stuff_found) // this doubles as sleep if buffer stall (not sure)
-        {
-            Debug::print("All loaded. Loader sleeping for ", SLEEP_MS, "ms.");
-            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
-        }
-    }
-
-    Debug::print("Exited loader thread.");
-}
-#endif
 
 //==============================================================================
 bool World::inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance)
@@ -1305,16 +978,9 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
 {
     assert(all(m_chunk_statuses[chunk_position].position == chunk_position) && "Something broke.");
     // load correct region file
-    //const auto chunk_position = m_chunk_positions[chunk_index];
     const auto region_position = floorDiv(chunk_position, REGION_SIZES);
 
     loadRegion(region_position);
-
-    //const auto region_relative = floorMod(region_position, REGION_CONTAINER_SIZES);
-    //const auto region_index = toIndex(region_relative, REGION_CONTAINER_SIZES);
-
-    //const auto chunk_in_region_relative = floorMod(chunk_position, REGION_SIZES);
-    //const auto chunk_in_region_index = toIndex(chunk_in_region_relative, REGION_SIZES);
 
     // compress chunk
     uLong destination_length = compressBound(static_cast<uLong>(SOURCE_LENGTH)); // compressBound could be static
@@ -1338,8 +1004,6 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
 
     // TODO: profile how much it is compressed
     auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH), Z_BEST_SPEED);
-
-    //Debug::print("Compression ratio: ", static_cast<double>(destination_length) / SOURCE_LENGTH);
 
     assert(result == Z_OK && "Error compressing chunk.");
     assert(destination_length <= compressBound(static_cast<uLong>(SOURCE_LENGTH)) && "ZLib lied about the maximum possible size of compressed data.");
@@ -1365,68 +1029,45 @@ void World::saveRegionToDrive(const iVec3 region_position)
 
     // only if valid
     assert(all(region_position == region.position) && "Trying to save invalid region.");
-    /*if (
-            (region_index == 0 && all(position == iVec3{ 0, 0, 0 })) ||
-            (region_index != 0 && !all(position == iVec3{ 0, 0, 0 }))
-        )*/
-    {
-        // save old region
-        Debug::print("Saving region ", toString(position));
-        assert(region.data != nullptr && "No idea why this can happen.");
 
-        std::string file_name = WORLD_ROOT + toString(position);
-        std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
+    // save old region
+    Debug::print("Saving region ", toString(position));
+    assert(region.data != nullptr && "No idea why this can happen.");
 
-        file.write(reinterpret_cast<const char *>(&region.size), sizeof(int));
-        file.write(reinterpret_cast<const char *>(region.metas.begin()), META_DATA_SIZE);
-        file.write(reinterpret_cast<const char *>(region.data), region.size);
+    std::string file_name = WORLD_ROOT + toString(position);
+    std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
-        if (!file.good()) std::runtime_error("Writing file failed.");
-    }
+    file.write(reinterpret_cast<const char *>(&region.size), sizeof(int));
+    file.write(reinterpret_cast<const char *>(region.metas.begin()), META_DATA_SIZE);
+    file.write(reinterpret_cast<const char *>(region.data), region.size);
+
+    if (!file.good()) std::runtime_error("Writing file failed.");
+
 }
 
 //==============================================================================
 // TODO: refactor: should not need to take both mesh_cache and first_delete_that_it_s_just_for_testing
 void World::saveMeshCacheToDrive(const MeshCache & mesh_cache, const iVec3 first_delete_that_it_s_just_for_testing)
 {
-    // TODO: remove. this is useless
-    //const int mesh_cache_index = all(first_delete_that_it_s_just_for_testing == iVec3{ 0, 0, 0 }) ? 0 : 1;
-
     if (!mesh_cache.needs_save)
         return;
 
     const auto position = mesh_cache.position;
 
     assert(all(first_delete_that_it_s_just_for_testing == mesh_cache.position) && "Trying to save invalid mesh cache.");
-    // only if valid
-    /*if ( // TODO: make check unneccessary by setting needs_save to false by default
-            (mesh_cache_index == 0 && all(position == iVec3{ 0, 0, 0 })) ||
-            (mesh_cache_index != 0 && !all(position == iVec3{ 0, 0, 0 }))
-       )*/
-    {
-        // save old mesh cache
-        Debug::print("Saving mesh cache ", toString(position));
 
-        std::string file_name = MESH_CACHE_ROOT + toString(position);
-        std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
+    // save old mesh cache
+    Debug::print("Saving mesh cache ", toString(position));
 
-        //file.write(reinterpret_cast<const char *>(mesh_cache.statuses.begin()), MESH_REGION_SIZE * sizeof(MeshCache::Status));
-        //file.write(reinterpret_cast<const char *>(mesh_cache.decompressed_size.begin()), sizeof(mesh_cache.decompressed_size));
-        //file.write(reinterpret_cast<const char *>(mesh_cache.compressed_size.begin()), sizeof(mesh_cache.compressed_size));
-        //file.write(reinterpret_cast<const char *>(mesh_cache.offset.begin()), sizeof(mesh_cache.offset));
+    std::string file_name = MESH_CACHE_ROOT + toString(position);
+    std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
-        file.write(reinterpret_cast<const char *>(&mesh_cache.size), sizeof(int));
+    file.write(reinterpret_cast<const char *>(&mesh_cache.size), sizeof(int));
+    file.write(reinterpret_cast<const char *>(mesh_cache.info.begin()), sizeof(mesh_cache.info));
+    file.write(reinterpret_cast<const char *>(mesh_cache.data), mesh_cache.size);
 
-        file.write(reinterpret_cast<const char *>(mesh_cache.info.begin()), sizeof(mesh_cache.info));
+    if (!file.good()) std::runtime_error("Writing file failed.");
 
-        file.write(reinterpret_cast<const char *>(mesh_cache.data), mesh_cache.size);
-
-        if (!file.good()) std::runtime_error("Writing file failed.");
-    }
-//    else
-//    {
-//        assert(0 && "This is a little bit messy. After rework, this should never be reached.");
-//    }
 }
 
 //==============================================================================
@@ -1435,12 +1076,6 @@ void World::saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Ver
     const auto new_status = mesh.size() == 0 ? MeshCache::Status::EMPTY : MeshCache::Status::NON_EMPTY;
 
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
-
-    //const auto mesh_in_mesh_cache_relative = floorMod(mesh_position, MESH_REGION_SIZES);
-    //const auto mesh_in_mesh_cache_index = toIndex(mesh_in_mesh_cache_relative, MESH_REGION_SIZES);
-
-    //const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
-    //const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
 
     auto & mesh_cache = m_mesh_cache_infos[mesh_cache_position];
 
@@ -1497,12 +1132,6 @@ std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
 {
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
 
-    //const auto mesh_in_mesh_cache_relative = floorMod(mesh_position, MESH_REGION_SIZES);
-    //const auto mesh_in_mesh_cache_index = toIndex(mesh_in_mesh_cache_relative, MESH_REGION_SIZES);
-
-    //const auto mesh_cache_relative = floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES);
-    //const auto mesh_cache_index = toIndex(mesh_cache_relative, MESH_REGION_CONTAINER_SIZES);
-
     auto & mesh_cache = m_mesh_cache_infos[mesh_cache_position];
 
     if (!all(mesh_cache.position == mesh_cache_position))
@@ -1513,7 +1142,6 @@ std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
     // empty mesh
     if (decompressed_size == 0)
     {
-        //return{};
         assert(0 && "Function should not be called for empty chunks.");
     }
     // load mesh from mesh cache
