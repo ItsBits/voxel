@@ -13,11 +13,11 @@ constexpr char World::WORLD_ROOT[];
 constexpr char World::MESH_CACHE_ROOT[];
 constexpr iVec3 World::CHUNK_SIZES;
 constexpr iVec3 World::CHUNK_CONTAINER_SIZES;
-constexpr iVec3 World::REGION_CONTAINER_SIZES;
+constexpr iVec3 World::CHUNK_REGION_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_REGION_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_REGION_SIZES;
 constexpr int World::META_DATA_SIZE;
-constexpr iVec3 World::REGION_SIZES;
+constexpr iVec3 World::CHUNK_REGION_SIZES;
 constexpr int World::MESH_BORDER_REQUIRED_SIZE;
 constexpr unsigned char World::SHADDOW_STRENGTH;
 constexpr iVec3 World::MESH_CONTAINER_SIZES;
@@ -28,7 +28,8 @@ constexpr int World::SLEEP_MS;
 //==============================================================================
 World::World() :
         m_reference_center{ 0, 0, 0 },
-        m_center{ { 0, 0, 0 } },
+        //m_center{ { 0, 0, 0 } },
+        m_center_mesh{ { 0, 0, 0 } }, // TODO: update to correct position before first use in meshLoader
         m_quit{ false },
         m_moved_far{ false }
 {
@@ -79,10 +80,25 @@ World::~World()
         if (chunk_status.needs_save) // TODO: check if this is this optional because saveChunkToRegions checks it?
             saveChunkToRegion(chunk_status.position);
 
+    // TODO: refactor
     // save all valid regions
+    bool first_deelete_that = true;
     for (const auto & region : m_regions)
     {
-        saveRegionToDrive(region.position);
+        if (first_deelete_that)
+        {
+            first_deelete_that = false;
+
+            if (all(region.position == iVec3{ 1, 0, 0 }))
+                continue;
+            else
+                saveRegionToDrive(region.position);
+        }
+        else
+        {
+            if (!all(region.position == iVec3{ 0, 0, 0 }))
+                saveRegionToDrive(region.position);
+        }
     }
 
     // save all mesh caches to drive
@@ -197,7 +213,7 @@ void World::loadRegion(const iVec3 region_position)
         return;
 
     // save existing region
-    if (all(floorMod(old_position, REGION_CONTAINER_SIZES) == floorMod(region_position, REGION_CONTAINER_SIZES)))
+    if (all(floorMod(old_position, CHUNK_REGION_CONTAINER_SIZES) == floorMod(region_position, CHUNK_REGION_CONTAINER_SIZES)))
         saveRegionToDrive(old_position);
     else
         assert(m_regions[region_position].needs_save == false && "Something broke.");
@@ -301,7 +317,7 @@ int World::loadChunk(const iVec3 chunk_position)
     if (all(chunk_status.position == chunk_position))
       return 0;
 
-    const auto region_position = floorDiv(chunk_position, REGION_SIZES);
+    const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
 
     // save previous chunk
     if (chunk_status.needs_save)
@@ -538,6 +554,8 @@ void World::generateChunk(const iVec3 from_block)
 {
     sineChunk(from_block);
     //debugChunk(from_block);
+    //smallBlockChunk(from_block);
+    //floorChunk(from_block);
 }
 
 //==============================================================================
@@ -563,6 +581,45 @@ void World::debugChunk(const iVec3 from_block)
 
                 getBlock(position) = b;
             }
+}
+
+//==============================================================================
+void World::floorChunk(const iVec3 from_block)
+{
+    const iVec3 to_block = from_block + CHUNK_SIZES;
+
+    iVec3 position;
+
+    const iVec3 pos_chunk = floorMod(floorDiv(from_block, CHUNK_SIZES), iVec3{ 2, 2, 2 });
+    const bool even_chunk = static_cast<bool>(pos_chunk(0) ^ pos_chunk(2));
+
+    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
+        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
+            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+                getBlock(position) = position(1) > 0 ? Block{ 0 } : even_chunk ? Block{ 1 } : Block{ 2 };
+}
+
+//==============================================================================
+void World::smallBlockChunk(const iVec3 from_block)
+{
+    const iVec3 to_block = from_block + CHUNK_SIZES;
+
+    iVec3 position;
+
+    const auto pos_maybe = floorDiv(from_block, CHUNK_SIZES);
+
+    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
+        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
+            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+                getBlock(position) = Block{ 0 };
+
+    const iVec3 new_from_block = from_block + CHUNK_SIZES / 2 - 2;
+    const iVec3 new_to_block = from_block + CHUNK_SIZES / 2 + 2;
+
+    for (position(2) = new_from_block(2); position(2) < new_to_block(2); ++position(2))
+        for (position(1) = new_from_block(1); position(1) < new_to_block(1); ++position(1))
+            for (position(0) = new_from_block(0); position(0) < new_to_block(0); ++position(0))
+                getBlock(position) = Block{ 1 };
 }
 
 //==============================================================================
@@ -603,7 +660,8 @@ void World::meshLoader()
         Profiler::resetAll();
         Debug::print("New loader thread loop.");
 
-        const iVec3 center = m_center.load();
+        //const iVec3 center = m_center.load();
+        const iVec3 center_mesh = m_center_mesh.load();
         bool buffer_stall = false;
 
         // remove out of range meshes
@@ -612,11 +670,13 @@ void World::meshLoader()
         for (std::size_t i = 0; i < count;)
         {
             const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
+            const iVec3 mesh_pos = m_loaded_meshes[i].position;
             const auto test_position_DELETE_QUESTIONMARK = m_loaded_meshes[i].position;
             const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZES);
             const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZES);
 
-            if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
+            //if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
+            if (!inRange(center_mesh, mesh_pos, SQUARE_REMOVE_DISTANCE))
             {
                 if (!m_loaded_meshes[i].empty)
                 {
@@ -655,7 +715,7 @@ void World::meshLoader()
         // load new meshes
         if (!buffer_stall)
         {
-            const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
+            //const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
             int iterator = 0;
 
             // main loader loop
@@ -666,8 +726,10 @@ void World::meshLoader()
                 const auto current = m_iterator.m_points[iterator++] + center_mesh;
 
                 // or better just make the m_iterator size correct so break on iterator < m_iterator.m_points.size() is useful
-                if (!inRange(center, current * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
+                // TODO: should + .. really be there?
+                if (!inRange(center_mesh, current, SQUARE_RENDER_DISTANCE))
                 {
+                    assert(0 && "Implemented something that should not allow this to ever happen.");
                     Debug::print("Break because out of range.");
                     break;
                 }
@@ -794,7 +856,16 @@ bool World::inRange(const iVec3 center_block, const iVec3 position_block, const 
 //==============================================================================
 void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 {
-    m_center = new_center;
+    //m_center = new_center;
+    const iVec3 center_mesh = floorDiv(new_center - MESH_OFFSETS, MESH_SIZES); // TODO: verify if this is correct
+
+//#define DONT_MOVE_CENTER
+
+#ifdef DONT_MOVE_CENTER
+    m_center_mesh = iVec3{ 0, 0, 0 };
+#else
+    m_center_mesh = center_mesh;
+#endif
 
     const auto delta_movement = new_center - m_reference_center;
     const auto square_distance = dot(delta_movement, delta_movement);
@@ -896,8 +967,12 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     {
         // only render if not too far away
         // TODO: could be combined with frustum culling (make far frustum sqrt(SQUARE_RENDER_DISTACE) away)
-        static_assert(!(MESH_SIZE_X % 2 || MESH_SIZE_Y % 2 || MESH_SIZE_Z % 2), "Assuming even mesh sizes");
-        if (!inRange(new_center, i->data.position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2), SQUARE_RENDER_DISTANCE))
+        static_assert(!(MESH_SIZES(0) % 2 || MESH_SIZES(1) % 2 || MESH_SIZES(2) % 2), "Assuming even mesh sizes");
+#ifdef DONT_MOVE_CENTER
+        if (!inRange({ 0, 0, 0 }, i->data.position, SQUARE_RENDER_DISTANCE))
+#else
+        if (!inRange(center_mesh, i->data.position, SQUARE_RENDER_DISTANCE))
+#endif
             continue;
 
         if (meshInFrustum(frustum_planes, i->data.position * MESH_SIZES + MESH_OFFSETS))
@@ -978,7 +1053,7 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
 {
     assert(all(m_chunk_statuses[chunk_position].position == chunk_position) && "Something broke.");
     // load correct region file
-    const auto region_position = floorDiv(chunk_position, REGION_SIZES);
+    const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
 
     loadRegion(region_position);
 

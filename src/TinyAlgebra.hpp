@@ -265,3 +265,9 @@ constexpr bool largerZero(const Vec<T, S> x, const int i = 0)
                    (x(i) > T{ 0 } ? largerZero(x, i + 1) : false)
                    : true;
 }
+
+//==============================================================================
+constexpr int ceilIntDiv(int x, int y)
+{
+    return (x + y - 1) / y;
+}

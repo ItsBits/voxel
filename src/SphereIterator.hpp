@@ -36,15 +36,8 @@ template<int RADIUS>
 SphereIterator<RADIUS>::SphereIterator()
 {
   std::vector<Node> nodes;
-  std::vector<int32_t> start_points;
-  std::vector<int32_t> reference_distances;
 
-  for (int32_t i = 0; i <= RADIUS + 1; ++i)
-  {
-    reference_distances.push_back(square_distance(i, 0, 0));
-  }
-
-  const int32_t too_far = square_distance(RADIUS + 1, 0, 0);
+  const int32_t too_far = square_distance(RADIUS, 0, 0);
 
   for (int32_t z = -RADIUS; z <= RADIUS; ++z)
     for (int32_t y = -RADIUS; y <= RADIUS; ++y)
@@ -57,20 +50,6 @@ SphereIterator<RADIUS>::SphereIterator()
 
   std::sort(nodes.begin(), nodes.end(), [&](const Node & a, const Node & b) { return a.d < b.d; });
 
-
-  auto current_reference_distance = reference_distances.begin();
-
-  for (int32_t i = 0; i < nodes.size(); ++i)
-  {
-    if (*current_reference_distance == nodes[i].d)
-    {
-      start_points.push_back(i);
-      ++current_reference_distance;
-    }
-
-  }
-
-  start_points.push_back(static_cast<int32_t>(nodes.size()));
 
   for (auto & i : nodes)
       m_points.push_back({ i.x, i.y, i.z });

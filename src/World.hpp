@@ -58,47 +58,47 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 130 },
+            RDISTANCE{ 14 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
-            //MCSIZE{ 48 },
-            MCSIZE{ (REDISTANCE * 2) / MSIZE + 8 },
+            MCSIZE{ (REDISTANCE * 2) + 1 + 8 }, // + any number
             MESH_BORDER_REQUIRED_SIZE{ 1 },
-            MOFF{ MESH_BORDER_REQUIRED_SIZE + 3 }, // or maybe do chunk_size / 2
-            //MOFF{ 0 },
-            RSIZE{ 512 / CSIZE },
-            MRSIZE{ RSIZE },
-            CCSIZE{ 16 },
-            RCSIZE{ (MSIZE * MCSIZE + MOFF) / (CSIZE * RSIZE) + 3 }, // round up + 2 instead of + 3 would be prettier
-            MRCSIZE{ RCSIZE };
+            MOFF{ CSIZE / 2 },
+            CRSIZE{ ceilIntDiv(512, CSIZE) },
+            MRSIZE{ ceilIntDiv(512, MSIZE) },
+            CCSIZE{ ceilIntDiv(MSIZE + MESH_BORDER_REQUIRED_SIZE * 2, CSIZE) + 1 + 0 }, // + any number
+            CRCSIZE{ ceilIntDiv((MSIZE * REDISTANCE + MESH_BORDER_REQUIRED_SIZE * 2), (CSIZE * CRSIZE)) + 2 + 0 }, // + any number
+            MRCSIZE{ CRCSIZE };
 
-    static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && RSIZE > 0 && RCSIZE > 0, "Parameters must be positive.");
-    static_assert((RDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the render distance.");
-    static_assert((REDISTANCE * 2) / MSIZE < MCSIZE, "Mesh container too small for the loaded distance.");
+    static_assert(CSIZE > 0 && MSIZE > 0 && MCSIZE > 0 && MESH_BORDER_REQUIRED_SIZE >= 0 && CRSIZE > 0 && CRCSIZE > 0, "Parameters must be positive.");
+    static_assert((RDISTANCE * 2) + 1 <= MCSIZE, "Mesh container too small for the render distance.");
+    static_assert((REDISTANCE * 2) + 1 <= MCSIZE, "Mesh container too small for the loaded distance.");
     static_assert(((MESH_BORDER_REQUIRED_SIZE * 2 + MSIZE) + (CSIZE - 1)) / CSIZE <= CCSIZE, "Chunk container size too small.");
 
-    static constexpr int CHUNK_SIZE_X{ CSIZE }, CHUNK_SIZE_Y{ CSIZE }, CHUNK_SIZE_Z{ CSIZE };
-    static constexpr int CHUNK_CONTAINER_SIZE_X{ CCSIZE }, CHUNK_CONTAINER_SIZE_Y{ CCSIZE }, CHUNK_CONTAINER_SIZE_Z{ CCSIZE };
-    static constexpr int MESH_SIZE_X{ MSIZE }, MESH_SIZE_Y{ MSIZE }, MESH_SIZE_Z{ MSIZE };
-    static constexpr int MESH_CONTAINER_SIZE_X{ MCSIZE }, MESH_CONTAINER_SIZE_Y{ MCSIZE }, MESH_CONTAINER_SIZE_Z{ MCSIZE };
-    static constexpr int MESH_OFFSET_X{ MOFF }, MESH_OFFSET_Y{ MOFF }, MESH_OFFSET_Z{ MOFF };
-    static constexpr int REGION_SIZE_X{ RSIZE }, REGION_SIZE_Y{ RSIZE }, REGION_SIZE_Z{ RSIZE };
-    static constexpr int MESH_REGION_SIZE_X{ MRSIZE }, MESH_REGION_SIZE_Y{ MRSIZE }, MESH_REGION_SIZE_Z{ MRSIZE };
-    static constexpr int REGION_CONTAINER_SIZE_X{ RCSIZE }, REGION_CONTAINER_SIZE_Y{ RCSIZE }, REGION_CONTAINER_SIZE_Z{ RCSIZE };
-    static constexpr int MESH_REGION_CONTAINER_SIZE_X{ MRCSIZE }, MESH_REGION_CONTAINER_SIZE_Y{ MRCSIZE }, MESH_REGION_CONTAINER_SIZE_Z{ MRCSIZE };
-    static constexpr int RENDER_DISTANCE_X{ RDISTANCE }, RENDER_DISTANCE_Y{ RDISTANCE }, RENDER_DISTANCE_Z{ RDISTANCE };
-    static constexpr int REMOVE_DISTANCE_X{ REDISTANCE }, REMOVE_DISTANCE_Y{ REDISTANCE }, REMOVE_DISTANCE_Z{ REDISTANCE };
+    static constexpr iVec3 CHUNK_SIZES{ CSIZE, CSIZE, CSIZE };
+    static constexpr iVec3 CHUNK_CONTAINER_SIZES{ CCSIZE, CCSIZE, CCSIZE };
+    static constexpr iVec3 CHUNK_REGION_SIZES{ CRSIZE, CRSIZE, CRSIZE };
+    static constexpr iVec3 CHUNK_REGION_CONTAINER_SIZES{ CRCSIZE, CRCSIZE, CRCSIZE };
 
-    static constexpr int CHUNK_SIZE{ CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z };
-    static constexpr int CHUNK_CONTAINER_SIZE{ CHUNK_CONTAINER_SIZE_X * CHUNK_CONTAINER_SIZE_Y * CHUNK_CONTAINER_SIZE_Z };
-    static constexpr int MESH_CONTAINER_SIZE{ MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z };
-    static constexpr int REGION_SIZE{ REGION_SIZE_X * REGION_SIZE_Y * REGION_SIZE_Z };
+    static constexpr iVec3 MESH_SIZES{ MSIZE, MSIZE, MSIZE };
+    static constexpr iVec3 MESH_CONTAINER_SIZES{ MCSIZE, MCSIZE, MCSIZE };
+    static constexpr iVec3 MESH_REGION_SIZES{ MRSIZE, MRSIZE, MRSIZE };
+    static constexpr iVec3 MESH_REGION_CONTAINER_SIZES{ MRCSIZE, MRCSIZE, MRCSIZE };
+
+    static constexpr iVec3 MESH_OFFSETS{ MOFF, MOFF, MOFF };
+
+
+    static constexpr int CHUNK_SIZE{ product(CHUNK_SIZES) };
+    static constexpr int CHUNK_CONTAINER_SIZE{ product(CHUNK_CONTAINER_SIZES) };
+    static constexpr int MESH_CONTAINER_SIZE{ product(MESH_CONTAINER_SIZES) };
+    static constexpr int CHUNK_REGION_SIZE{ product(CHUNK_REGION_SIZES) };
 
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
-    static constexpr int SQUARE_RENDER_DISTANCE{ RENDER_DISTANCE_X * RENDER_DISTANCE_X + RENDER_DISTANCE_Y * RENDER_DISTANCE_Y + RENDER_DISTANCE_Z * RENDER_DISTANCE_Z };
-    static constexpr int SQUARE_REMOVE_DISTANCE{ REMOVE_DISTANCE_X * REMOVE_DISTANCE_X + REMOVE_DISTANCE_Y * REMOVE_DISTANCE_Y + REMOVE_DISTANCE_Z * REMOVE_DISTANCE_Z };
+
+    static constexpr int SQUARE_RENDER_DISTANCE{ RDISTANCE * RDISTANCE };
+    static constexpr int SQUARE_REMOVE_DISTANCE{ REDISTANCE * REDISTANCE };
 
     static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
     static constexpr int SOURCE_LENGTH{ sizeof(Block) * CHUNK_SIZE };
@@ -107,25 +107,14 @@ private:
     static constexpr char WORLD_ROOT[]{ "world/" };
     static constexpr char MESH_CACHE_ROOT[]{ "mesh_cache/" };
 
-    static constexpr int META_DATA_SIZE{ REGION_SIZE * sizeof(ChunkMeta) };
+    static constexpr int META_DATA_SIZE{ CHUNK_REGION_SIZE * sizeof(ChunkMeta) };
 
     static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * 2 };
 
-    static constexpr iVec3 CHUNK_SIZES{ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z };
-    static constexpr iVec3 REGION_SIZES{ REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z };
-    static constexpr iVec3 CHUNK_CONTAINER_SIZES{ CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z };
-    static constexpr iVec3 REGION_CONTAINER_SIZES{ REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z };
-    static constexpr iVec3 MESH_REGION_CONTAINER_SIZES{ MESH_REGION_CONTAINER_SIZE_X, MESH_REGION_CONTAINER_SIZE_Y, MESH_REGION_CONTAINER_SIZE_Z };
-    static constexpr iVec3 MESH_REGION_SIZES{ MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z };
-
-    static constexpr iVec3 MESH_CONTAINER_SIZES{ MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z };
-    static constexpr iVec3 MESH_SIZES{ MESH_SIZE_X, MESH_SIZE_Y, MESH_SIZE_Z };
-    static constexpr iVec3 MESH_OFFSETS{ MESH_OFFSET_X, MESH_OFFSET_Y, MESH_OFFSET_Z };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
     static constexpr int SLEEP_MS{ 100 };
     static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
-    static constexpr int MESHES_TO_LOAD_PER_LOOP{ 32 };
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
 
@@ -139,26 +128,24 @@ private:
     Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE]; // TODO: use mod table
 
     struct ChunkStatus { iVec3 position; bool needs_save; };
-    ModTable<ChunkStatus, int, CHUNK_CONTAINER_SIZE_X, CHUNK_CONTAINER_SIZE_Y, CHUNK_CONTAINER_SIZE_Z> m_chunk_statuses;
+    ModTable<ChunkStatus, int, CHUNK_CONTAINER_SIZES(0), CHUNK_CONTAINER_SIZES(1), CHUNK_CONTAINER_SIZES(2)> m_chunk_statuses;
 
     // TODO: more space efficient format than current (3 states only needed)
-    ModTable<Status, int, MESH_CONTAINER_SIZE_X, MESH_CONTAINER_SIZE_Y, MESH_CONTAINER_SIZE_Z> m_mesh_loaded;
+    ModTable<Status, int, MESH_CONTAINER_SIZES(0), MESH_CONTAINER_SIZES(1), MESH_CONTAINER_SIZES(2)> m_mesh_loaded;
 
-    static constexpr int MAX_RENDER_DISTANCE{ std::max(std::max(RENDER_DISTANCE_X, RENDER_DISTANCE_Y), RENDER_DISTANCE_Z) };
-    static constexpr int MAX_CHUNK_SIZE{ std::max(std::max(CHUNK_SIZE_X, CHUNK_SIZE_Y), CHUNK_SIZE_Z) };
-    SphereIterator<(MAX_RENDER_DISTANCE + MAX_CHUNK_SIZE - 1) / MAX_CHUNK_SIZE> m_iterator;
+    SphereIterator<RDISTANCE> m_iterator; // TODO: fix that. currently assumes that all sides are same size!
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
     struct Region
     {
         iVec3 position;
-        ModTable<ChunkMeta, int, REGION_SIZE_X, REGION_SIZE_Y, REGION_SIZE_Z> metas;
+        ModTable<ChunkMeta, int, CHUNK_REGION_SIZES(0), CHUNK_REGION_SIZES(1), CHUNK_REGION_SIZES(2)> metas;
         Bytef *data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
         bool needs_save;
     };
-    ModTable<Region, int, REGION_CONTAINER_SIZE_X, REGION_CONTAINER_SIZE_Y, REGION_CONTAINER_SIZE_Z> m_regions;
+    ModTable<Region, int, CHUNK_REGION_CONTAINER_SIZES(0), CHUNK_REGION_CONTAINER_SIZES(1), CHUNK_REGION_CONTAINER_SIZES(2)> m_regions;
 
     struct MeshCache
     {
@@ -171,11 +158,11 @@ private:
         bool needs_save;
 
         struct MeshCacheInfo { Status status; int decompressed_size; int compressed_size; int offset; };
-        ModTable<MeshCacheInfo, int, MESH_REGION_SIZE_X, MESH_REGION_SIZE_Y, MESH_REGION_SIZE_Z> info;
+        ModTable<MeshCacheInfo, int, MESH_REGION_SIZES(0), MESH_REGION_SIZES(1), MESH_REGION_SIZES(2)> info;
 
         Bytef *data; // TODO: replace pointer with RAII mechanism
     };
-    ModTable<MeshCache, int, MESH_REGION_CONTAINER_SIZE_X, MESH_REGION_CONTAINER_SIZE_Y, MESH_REGION_CONTAINER_SIZE_Z> m_mesh_cache_infos;
+    ModTable<MeshCache, int, MESH_REGION_CONTAINER_SIZES(0), MESH_REGION_CONTAINER_SIZES(1), MESH_REGION_CONTAINER_SIZES(2)> m_mesh_cache_infos;
 
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
@@ -184,7 +171,7 @@ private:
 
     // shared / synchronization data
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
-    std::atomic<iVec3> m_center;
+    std::atomic<iVec3> m_center_mesh;
     std::atomic_bool m_quit;
     std::atomic_bool m_moved_far;
 
@@ -199,6 +186,8 @@ private:
     void generateChunk(const iVec3 from_block);
     void sineChunk(const iVec3 from_block);
     void debugChunk(const iVec3 from_block);
+    void smallBlockChunk(const iVec3 from_block);
+    void floorChunk(const iVec3 from_block);
     void meshLoader();
     bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
     void exitLoaderThread();

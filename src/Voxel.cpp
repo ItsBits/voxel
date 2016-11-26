@@ -145,7 +145,11 @@ void Voxel::run()
         m_player.updateVelocity(static_cast<float>(delta_time));
         m_player.applyVelocity(static_cast<float>(delta_time));
         m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
-        m_camera.update(m_player.getPosition(), m_player.getYaw(), m_player.getPitch());
+        m_camera.update(m_player.getPosition()
+#if 0
+                        + glm::vec3{ 0, 150, 0 }
+#endif
+                , m_player.getYaw(), m_player.getPitch());
 
         // render blocks
         m_block_shader.use();
