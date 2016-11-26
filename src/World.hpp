@@ -88,37 +88,29 @@ private:
 
     static constexpr iVec3 MESH_OFFSETS{ MOFF, MOFF, MOFF };
 
-
     static constexpr int CHUNK_SIZE{ product(CHUNK_SIZES) };
     static constexpr int CHUNK_CONTAINER_SIZE{ product(CHUNK_CONTAINER_SIZES) };
     static constexpr int MESH_CONTAINER_SIZE{ product(MESH_CONTAINER_SIZES) };
-    static constexpr int CHUNK_REGION_SIZE{ product(CHUNK_REGION_SIZES) };
-
-    static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
-
 
     static constexpr int SQUARE_RENDER_DISTANCE{ RDISTANCE * RDISTANCE };
     static constexpr int SQUARE_REMOVE_DISTANCE{ REDISTANCE * REDISTANCE };
 
-    static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
-    static constexpr int SOURCE_LENGTH{ sizeof(Block) * CHUNK_SIZE };
-    static constexpr int REGION_DATA_SIZE_FACTOR{ SOURCE_LENGTH * 128 };
-
     static constexpr char WORLD_ROOT[]{ "world/" };
     static constexpr char MESH_CACHE_ROOT[]{ "mesh_cache/" };
 
-    static constexpr int META_DATA_SIZE{ CHUNK_REGION_SIZE * sizeof(ChunkMeta) };
-
-    static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * 2 };
-
+    static_assert(sizeof(Bytef) == sizeof(char), "Assuming that.");
+    static constexpr int CHUNK_DATA_SIZE{ sizeof(Block) * CHUNK_SIZE };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
     static constexpr int SLEEP_MS{ 100 };
     static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
+    static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * 2 };
+    static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
 
     static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
+    static constexpr int REGION_DATA_SIZE_FACTOR{ CHUNK_DATA_SIZE * 128 };
 
     //==============================================================================
     // variables
@@ -133,7 +125,7 @@ private:
     // TODO: more space efficient format than current (3 states only needed)
     ModTable<Status, int, MESH_CONTAINER_SIZES(0), MESH_CONTAINER_SIZES(1), MESH_CONTAINER_SIZES(2)> m_mesh_loaded;
 
-    SphereIterator<RDISTANCE> m_iterator; // TODO: fix that. currently assumes that all sides are same size!
+    SphereIterator<RDISTANCE> m_iterator;
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
@@ -141,7 +133,7 @@ private:
     {
         iVec3 position;
         ModTable<ChunkMeta, int, CHUNK_REGION_SIZES(0), CHUNK_REGION_SIZES(1), CHUNK_REGION_SIZES(2)> metas;
-        Bytef *data; // TODO: replace pointer with RAII mechanism
+        Bytef * data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
         bool needs_save;
     };
@@ -149,18 +141,15 @@ private:
 
     struct MeshCache
     {
+        enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
+        struct MeshCacheInfo { Status status; int decompressed_size; int compressed_size; int offset; };
+
         iVec3 position;
-        enum class Status : char
-        {
-            UNKNOWN, EMPTY, NON_EMPTY
-        }; // could be reduced to bitmap (2 bits per mesh)
         int size, container_size;
         bool needs_save;
-
-        struct MeshCacheInfo { Status status; int decompressed_size; int compressed_size; int offset; };
         ModTable<MeshCacheInfo, int, MESH_REGION_SIZES(0), MESH_REGION_SIZES(1), MESH_REGION_SIZES(2)> info;
 
-        Bytef *data; // TODO: replace pointer with RAII mechanism
+        Bytef * data; // TODO: replace pointer with RAII mechanism
     };
     ModTable<MeshCache, int, MESH_REGION_CONTAINER_SIZES(0), MESH_REGION_CONTAINER_SIZES(1), MESH_REGION_CONTAINER_SIZES(2)> m_mesh_cache_infos;
 

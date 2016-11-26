@@ -16,7 +16,6 @@ constexpr iVec3 World::CHUNK_CONTAINER_SIZES;
 constexpr iVec3 World::CHUNK_REGION_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_REGION_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_REGION_SIZES;
-constexpr int World::META_DATA_SIZE;
 constexpr iVec3 World::CHUNK_REGION_SIZES;
 constexpr int World::MESH_BORDER_REQUIRED_SIZE;
 constexpr unsigned char World::SHADDOW_STRENGTH;
@@ -199,7 +198,6 @@ World::MeshCache::Status World::meshStatus(const iVec3 mesh_position)
     if (!all(mesh_cache.position == mesh_cache_position))
         loadMeshCache(mesh_cache_position);
 
-    //return mesh_cache.statuses[mesh_in_mesh_cache_index];
     return mesh_cache.info[mesh_position].status;
 }
 
@@ -228,7 +226,7 @@ void World::loadRegion(const iVec3 region_position)
         auto & region = m_regions[region_position];
         region.position = region_position;
         in_file.read(reinterpret_cast<char *>(&region.size), sizeof(int));
-        in_file.read(reinterpret_cast<char *>(region.metas.begin()), META_DATA_SIZE);
+        in_file.read(reinterpret_cast<char *>(region.metas.begin()), sizeof(region.metas));
         std::free(region.data);
         region.data = (Bytef *)std::malloc(static_cast<std::size_t>(region.size));
         in_file.read(reinterpret_cast<char *>(region.data), region.size);
@@ -254,7 +252,7 @@ void World::loadRegion(const iVec3 region_position)
 //==============================================================================
 void World::loadMeshCache(const iVec3 mesh_cache_position)
 {
-    /*cond*/ auto & mesh_cache_info = m_mesh_cache_infos[mesh_cache_position];
+    auto & mesh_cache_info = m_mesh_cache_infos[mesh_cache_position];
     const auto old_position = mesh_cache_info.position;
 
     // return if already loaded
@@ -341,7 +339,7 @@ int World::loadChunk(const iVec3 chunk_position)
         auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZES); // address of first block
 
         // load chunk from region
-        uLongf destination_length = static_cast<uLongf>(SOURCE_LENGTH);
+        uLongf destination_length = static_cast<uLongf>(CHUNK_DATA_SIZE);
         const auto off = chunk_meta.offset;
         const auto siz = chunk_meta.size;
 
@@ -350,7 +348,7 @@ int World::loadChunk(const iVec3 chunk_position)
                 reinterpret_cast<Bytef *>(beginning_of_chunk), &destination_length,
                 source, static_cast<uLongf>(siz)
         );
-        assert(result == Z_OK && destination_length == SOURCE_LENGTH && "Error in decompression.");
+        assert(result == Z_OK && destination_length == CHUNK_DATA_SIZE && "Error in decompression.");
 
         chunk_status.position = chunk_position;
         chunk_status.needs_save = false;
@@ -606,8 +604,6 @@ void World::smallBlockChunk(const iVec3 from_block)
 
     iVec3 position;
 
-    const auto pos_maybe = floorDiv(from_block, CHUNK_SIZES);
-
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
             for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
@@ -660,7 +656,6 @@ void World::meshLoader()
         Profiler::resetAll();
         Debug::print("New loader thread loop.");
 
-        //const iVec3 center = m_center.load();
         const iVec3 center_mesh = m_center_mesh.load();
         bool buffer_stall = false;
 
@@ -669,13 +664,11 @@ void World::meshLoader()
         Debug::print("Loaded meshes count: ", count);
         for (std::size_t i = 0; i < count;)
         {
-            const iVec3 mesh_center = m_loaded_meshes[i].position * MESH_SIZES + MESH_OFFSETS + (MESH_SIZES / 2);
             const iVec3 mesh_pos = m_loaded_meshes[i].position;
             const auto test_position_DELETE_QUESTIONMARK = m_loaded_meshes[i].position;
             const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZES);
             const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZES);
 
-            //if (!inRange(center, mesh_center, SQUARE_REMOVE_DISTANCE))
             if (!inRange(center_mesh, mesh_pos, SQUARE_REMOVE_DISTANCE))
             {
                 if (!m_loaded_meshes[i].empty)
@@ -715,7 +708,6 @@ void World::meshLoader()
         // load new meshes
         if (!buffer_stall)
         {
-            //const auto center_mesh = floorDiv(center - MESH_OFFSETS, MESH_SIZES);
             int iterator = 0;
 
             // main loader loop
@@ -833,6 +825,12 @@ BREAK_LOOP: (void)0;
 
         }
 
+        if (buffer_stall)
+        {
+            Debug::print("Break because buffer stall.");
+            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
+        }
+
         if (!new_stuff_found) // this doubles as sleep if buffer stall (not sure)
         {
             // TODO: replace sleep by conditional variable that is signaled when m_moved_far is set to true
@@ -856,16 +854,9 @@ bool World::inRange(const iVec3 center_block, const iVec3 position_block, const 
 //==============================================================================
 void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 {
-    //m_center = new_center;
-    const iVec3 center_mesh = floorDiv(new_center - MESH_OFFSETS, MESH_SIZES); // TODO: verify if this is correct
+    const iVec3 center_mesh = floorDiv(new_center - MESH_OFFSETS, MESH_SIZES);
 
-//#define DONT_MOVE_CENTER
-
-#ifdef DONT_MOVE_CENTER
-    m_center_mesh = iVec3{ 0, 0, 0 };
-#else
     m_center_mesh = center_mesh;
-#endif
 
     const auto delta_movement = new_center - m_reference_center;
     const auto square_distance = dot(delta_movement, delta_movement);
@@ -968,11 +959,8 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
         // only render if not too far away
         // TODO: could be combined with frustum culling (make far frustum sqrt(SQUARE_RENDER_DISTACE) away)
         static_assert(!(MESH_SIZES(0) % 2 || MESH_SIZES(1) % 2 || MESH_SIZES(2) % 2), "Assuming even mesh sizes");
-#ifdef DONT_MOVE_CENTER
-        if (!inRange({ 0, 0, 0 }, i->data.position, SQUARE_RENDER_DISTANCE))
-#else
+
         if (!inRange(center_mesh, i->data.position, SQUARE_RENDER_DISTANCE))
-#endif
             continue;
 
         if (meshInFrustum(frustum_planes, i->data.position * MESH_SIZES + MESH_OFFSETS))
@@ -1058,7 +1046,7 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
     loadRegion(region_position);
 
     // compress chunk
-    uLong destination_length = compressBound(static_cast<uLong>(SOURCE_LENGTH)); // compressBound could be static
+    uLong destination_length = compressBound(static_cast<uLong>(CHUNK_DATA_SIZE)); // compressBound could be static
 
     auto & cache = m_regions[region_position];
     assert(cache.size <= cache.container_size && "Capacity should always be more than size.");
@@ -1078,10 +1066,10 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
     // compress and save at once data to region
 
     // TODO: profile how much it is compressed
-    auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(SOURCE_LENGTH), Z_BEST_SPEED);
+    auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(CHUNK_DATA_SIZE), Z_BEST_SPEED);
 
     assert(result == Z_OK && "Error compressing chunk.");
-    assert(destination_length <= compressBound(static_cast<uLong>(SOURCE_LENGTH)) && "ZLib lied about the maximum possible size of compressed data.");
+    assert(destination_length <= compressBound(static_cast<uLong>(CHUNK_DATA_SIZE)) && "ZLib lied about the maximum possible size of compressed data.");
 
     auto & chunk_meta = cache.metas[chunk_position];
 
@@ -1113,7 +1101,7 @@ void World::saveRegionToDrive(const iVec3 region_position)
     std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
     file.write(reinterpret_cast<const char *>(&region.size), sizeof(int));
-    file.write(reinterpret_cast<const char *>(region.metas.begin()), META_DATA_SIZE);
+    file.write(reinterpret_cast<const char *>(region.metas.begin()), sizeof(region.metas));
     file.write(reinterpret_cast<const char *>(region.data), region.size);
 
     if (!file.good()) std::runtime_error("Writing file failed.");
