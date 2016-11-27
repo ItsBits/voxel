@@ -52,7 +52,6 @@ public:
     World();
     ~World();
 
-    // TODO: refactor
     void draw(const iVec3 new_center, const fVec4 frustum_planes[6]);
 
 private:
@@ -61,7 +60,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 8 },
+            RDISTANCE{ 14 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -158,36 +157,36 @@ private:
 
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
-    iVec3 m_reference_center;
+    //iVec3 m_reference_center;
     SparseMap<MeshWPos, MESH_CONTAINER_SIZE> m_meshes;
 
     // shared / synchronization data
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
     std::atomic<iVec3> m_center_mesh;
     std::atomic_bool m_quit;
-    std::atomic_bool m_moved_far;
+    std::atomic_bool m_moved_center_mesh;
 
     //==============================================================================
     // functions
 
-    // TODO: refactor following functions
-    void meshLoader();
-    static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
-    void sineChunk(const iVec3 from_block, const iVec3 to_block);
-    void emptyChunk(const iVec3 from_block, const iVec3 to_block);
-    void debugChunk(const iVec3 from_block, const iVec3 to_block);
-    void smallBlockChunk(const iVec3 from_block, const iVec3 to_block);
-    void floorChunk(const iVec3 from_block, const iVec3 to_block);
+    void meshLoader(); // TODO: refactor
+    static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset); // TODO: refactor
+    void sineChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
+    void emptyChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
+    void debugChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
+    void smallBlockChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
+    void floorChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
 
-    // cleaned up:
+    // renderer functions
+    void executeRendererCommands(const int max_command_count); // TODO: refactor
+
+    // loader functions
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
     void loadChunkToChunkContainer(const iVec3 chunk_position);
-    static bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
     void saveRegionToDrive(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
-    static unsigned char vertexAO(const bool side_a, const bool side_b, const bool corner);
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
     void generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
     MeshCache::Status getMeshStatus(const iVec3 mesh_position);
@@ -196,5 +195,9 @@ private:
     void loadRegion(const iVec3 region_position);
     void saveChunkToRegion(const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
+
+    // shared functions
+    static bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
+    static unsigned char vertexAO(const bool side_a, const bool side_b, const bool corner);
 
 };

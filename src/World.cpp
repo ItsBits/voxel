@@ -26,11 +26,11 @@ constexpr int World::SLEEP_MS;
 
 //==============================================================================
 World::World() :
-        m_reference_center{ 0, 0, 0 },
+//        m_reference_center{ 0, 0, 0 },
         //m_center{ { 0, 0, 0 } },
         m_center_mesh{ { 0, 0, 0 } }, // TODO: update to correct position before first use in meshLoader
         m_quit{ false },
-        m_moved_far{ false }
+        m_moved_center_mesh{ false }
 {
     for (auto & status : m_chunk_statuses)
         status = { { 0, 0, 0 }, false };
@@ -712,7 +712,7 @@ void World::meshLoader()
         }
         m_loaded_meshes.resize(count);
 
-        m_moved_far = false;
+        m_moved_center_mesh = false;
 
         bool new_stuff_found = false;
         // TODO: figure out when to reset queue
@@ -723,7 +723,7 @@ void World::meshLoader()
             int iterator = 0;
 
             // main loader loop
-            while (iterator < m_iterator.m_points.size() && !m_moved_far && !m_quit)
+            while (iterator < m_iterator.m_points.size() && !m_moved_center_mesh && !m_quit)
             {
                 // TODO: don't always start from scratch use reference positions from where to start when moving
                 assert(iterator < m_iterator.m_points.size() && "Out of bounds.");
@@ -846,7 +846,7 @@ BREAK_LOOP: (void)0;
 
         if (!new_stuff_found) // this doubles as sleep if buffer stall (not sure)
         {
-            // TODO: replace sleep by conditional variable that is signaled when m_moved_far is set to true
+            // TODO: replace sleep by conditional variable that is signaled when m_moved_center_mesh is set to true
             Debug::print("All loaded. Loader sleeping for ", SLEEP_MS, "ms.");
             std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
         }
@@ -866,22 +866,8 @@ bool World::inRange(const iVec3 center, const iVec3 position, const int max_squa
 }
 
 //==============================================================================
-void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
+void World::executeRendererCommands(const int max_command_count)
 {
-    const iVec3 center_mesh = floorDiv(new_center - MESH_OFFSETS, MESH_SIZES);
-
-    m_center_mesh = center_mesh;
-
-    const auto delta_movement = new_center - m_reference_center;
-    const auto square_distance = dot(delta_movement, delta_movement);
-    const auto moved_far = square_distance >= SQUARE_LOAD_RESET_DISTANCE;
-
-    if (moved_far)
-    {
-        m_reference_center = new_center;
-        m_moved_far = true;
-    }
-
     Command * command = nullptr;
     int commands_executed = 0;
 
@@ -911,7 +897,7 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
             m_commands.commitPop();
         }
 
-        // upload only after nothing left to remove
+            // upload only after nothing left to remove
         else if (command != nullptr && command->type == Command::Type::UPLOAD) // else if because of m_commands.commitPop(); in previous if !!! => data race in ring buffer
         {
             GLuint VAO = 0, VBO = 0;
@@ -963,31 +949,39 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
             m_commands.commitPop();
         }
     }
-    while(command != nullptr && commands_executed++ < MAX_COMMANDS_PER_FRAME);
+    while(command != nullptr && commands_executed++ < max_command_count);
+}
+
+//==============================================================================
+void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
+{
+    const auto center_mesh = floorDiv(new_center - MESH_OFFSETS, MESH_SIZES);
+    const auto old_center_mesh = m_center_mesh.exchange(center_mesh);
+
+    if (!all(old_center_mesh == center_mesh))
+        m_moved_center_mesh = true;
+
+    executeRendererCommands(MAX_COMMANDS_PER_FRAME);
 
     // render
-    const auto * i = m_meshes.begin();
-    const auto * end = m_meshes.end();
-    for (; i != end; ++i)
+    for (const auto & m : m_meshes)
     {
         // only render if not too far away
-        // TODO: could be combined with frustum culling (make far frustum sqrt(SQUARE_RENDER_DISTACE) away)
-        static_assert(!(MESH_SIZES(0) % 2 || MESH_SIZES(1) % 2 || MESH_SIZES(2) % 2), "Assuming even mesh sizes");
-
-        if (!inRange(center_mesh, i->data.position, SQUARE_RENDER_DISTANCE))
+        if (!inRange(center_mesh, m.data.position, SQUARE_RENDER_DISTANCE))
             continue;
 
-        if (meshInFrustum(frustum_planes, i->data.position * MESH_SIZES + MESH_OFFSETS))
-        {
-            const auto & mesh_data = i->data.mesh;
+        // only render if in frustum
+        if (!meshInFrustum(frustum_planes, m.data.position * MESH_SIZES + MESH_OFFSETS))
+            continue;
 
-            assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
-            assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and VBO not loaded.");
+        const auto & mesh_data = m.data.mesh;
 
-            glBindVertexArray(mesh_data.VAO);
-            glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
-            glBindVertexArray(0);
-        }
+        assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
+        assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and/or VBO not loaded.");
+
+        glBindVertexArray(mesh_data.VAO);
+        glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
+        glBindVertexArray(0);
     }
 }
 
