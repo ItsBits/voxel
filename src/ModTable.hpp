@@ -35,8 +35,7 @@ constexpr Vec<I, sizeof...(D)> ModTable<T, I, D ...>::DIMENSIONS;
 template<typename T, typename I, I ... D>
 const T & ModTable<T, I, D ...>::operator[](Vec<I, sizeof...(D)> position) const
 {
-    const auto position_relative{ floorMod(position, DIMENSIONS) };
-    const auto position_index{ toIndex(position_relative, DIMENSIONS) };
+    const auto position_index = positionToIndex(position, DIMENSIONS);
 
     return m_table[position_index];
 }

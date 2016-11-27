@@ -1,7 +1,5 @@
 #pragma once
 
-#define RESET_QUEUE
-
 #include "RingBufferSingleProducerSingleConsumer.hpp"
 #include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
@@ -169,15 +167,13 @@ private:
     //==============================================================================
     // functions
 
-    Block & getBlock(const iVec3 block_position);
     void meshLoader();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
-    void saveChunkToRegion(const iVec3 chunk_position);
-    MeshCache::Status meshStatus(const iVec3 mesh_position);
-    void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
 
+    void saveChunkToRegion(const iVec3 chunk_position);
+    void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
     void emptyChunk(const iVec3 from_block, const iVec3 to_block);
@@ -189,12 +185,14 @@ private:
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
     void loadChunkToChunkContainer(const iVec3 chunk_position);
-    bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
+    static bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
     void saveRegionToDrive(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
     static unsigned char vertexAO(const bool side_a, const bool side_b, const bool corner);
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
     void generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
+    MeshCache::Status getMeshStatus(const iVec3 mesh_position);
+    Block & getBlock(const iVec3 block_position);
 
 };

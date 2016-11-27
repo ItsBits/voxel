@@ -214,7 +214,7 @@ int toIndex(const Vec<T, S> position, const Vec<T, S> dimensions)
 //==============================================================================
 // absolute position to container index
 template<typename T, int S>
-int absoluteToIndex(const Vec<T, S> position, const Vec<T, S> dimensions)
+int positionToIndex(const Vec<T, S> position, const Vec<T, S> dimensions)
 {
     return toIndex(floorMod(position, dimensions), dimensions);
 }

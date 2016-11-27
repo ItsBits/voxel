@@ -159,13 +159,10 @@ World::~World()
 //==============================================================================
 Block & World::getBlock(const iVec3 block_position)
 {
-    const auto relative_position = floorMod(block_position, CHUNK_SIZES);
+    const auto block_index = positionToIndex(block_position, CHUNK_SIZES);
+
     const auto chunk_position = floorDiv(block_position, CHUNK_SIZES);
-    const auto chunk_relative = floorMod(chunk_position, CHUNK_CONTAINER_SIZES);
-
-    const auto block_index = toIndex(relative_position, CHUNK_SIZES);
-
-    const auto chunk_index = toIndex(chunk_relative, CHUNK_CONTAINER_SIZES);
+    const auto chunk_index = positionToIndex(chunk_position, CHUNK_CONTAINER_SIZES);
 
     return m_blocks[chunk_index * CHUNK_SIZE + block_index];
 }
@@ -187,7 +184,7 @@ void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
-World::MeshCache::Status World::meshStatus(const iVec3 mesh_position)
+World::MeshCache::Status World::getMeshStatus(const iVec3 mesh_position)
 {
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
 
@@ -744,7 +741,7 @@ void World::meshLoader()
                     break;
                 }
 
-                const auto current_index = absoluteToIndex(current, MESH_CONTAINER_SIZES);
+                const auto current_index = positionToIndex(current, MESH_CONTAINER_SIZES);
 
                 switch (m_mesh_loaded[current])
                 {
@@ -752,7 +749,7 @@ void World::meshLoader()
                     {
                         new_stuff_found = true;
                         // load mesh
-                        if (meshStatus(current) == MeshCache::Status::UNKNOWN)
+                        if (getMeshStatus(current) == MeshCache::Status::UNKNOWN)
                         {
                             Command *command = m_commands.initPush();
                             if (command == nullptr)
@@ -784,7 +781,7 @@ void World::meshLoader()
 
                             m_loaded_meshes.push_back({ current, mesh.size() == 0 });
                         }
-                        else if (meshStatus(current) == MeshCache::Status::NON_EMPTY)
+                        else if (getMeshStatus(current) == MeshCache::Status::NON_EMPTY)
                         {
                             Command *command = m_commands.initPush();
                             if (command == nullptr)
@@ -815,7 +812,7 @@ void World::meshLoader()
 
                             m_loaded_meshes.push_back({ current, mesh.size() == 0 });
                         }
-                        else if (meshStatus(current) == MeshCache::Status::EMPTY)
+                        else if (getMeshStatus(current) == MeshCache::Status::EMPTY)
                         {
                             m_loaded_meshes.push_back({ current, true });
                         }
