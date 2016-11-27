@@ -17,7 +17,7 @@
 #include <queue>
 #include "ModTable.hpp"
 
-// TODO: abstract and reuse repetitive data structures like 3D mod table, or m_mesh_cache_infos and m_regions
+// TODO: abstract and reuse repetitive data structures like m_mesh_caches and m_regions
 
 // TODO: expand
 // TODO: char instead of int position and type
@@ -147,11 +147,11 @@ private:
         iVec3 position;
         int size, container_size;
         bool needs_save;
-        ModTable<MeshCacheInfo, int, MESH_REGION_SIZES(0), MESH_REGION_SIZES(1), MESH_REGION_SIZES(2)> info;
+        ModTable<MeshCacheInfo, int, MESH_REGION_SIZES(0), MESH_REGION_SIZES(1), MESH_REGION_SIZES(2)> infos;
 
         Bytef * data; // TODO: replace pointer with RAII mechanism
     };
-    ModTable<MeshCache, int, MESH_REGION_CONTAINER_SIZES(0), MESH_REGION_CONTAINER_SIZES(1), MESH_REGION_CONTAINER_SIZES(2)> m_mesh_cache_infos;
+    ModTable<MeshCache, int, MESH_REGION_CONTAINER_SIZES(0), MESH_REGION_CONTAINER_SIZES(1), MESH_REGION_CONTAINER_SIZES(2)> m_mesh_caches;
 
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
@@ -169,8 +169,6 @@ private:
 
     void meshLoader();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
-    void loadRegion(const iVec3 region_position);
-    void loadMeshCache(const iVec3 mesh_cache_position);
 
     void saveChunkToRegion(const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
@@ -194,5 +192,7 @@ private:
     void generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
     MeshCache::Status getMeshStatus(const iVec3 mesh_position);
     Block & getBlock(const iVec3 block_position);
+    void loadMeshCache(const iVec3 mesh_cache_position);
+    void loadRegion(const iVec3 region_position);
 
 };
