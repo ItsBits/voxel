@@ -104,7 +104,10 @@ World::~World()
     bool first_TODO_delete = true;
     for (const auto & mesh_cache : m_mesh_cache_infos)
     {
-        if (first_TODO_delete)
+        if (mesh_cache.needs_save)
+            saveMeshCacheToDrive(mesh_cache.position);
+
+        /*if (first_TODO_delete)
         {
             first_TODO_delete = false;
             saveMeshCacheToDrive(mesh_cache, { 0, 0, 0 });
@@ -115,7 +118,7 @@ World::~World()
                 saveMeshCacheToDrive(mesh_cache, { 1, 0, 0 });
             else
                 saveMeshCacheToDrive(mesh_cache, mesh_cache.position);
-        }
+        }*/
     }
 
     Debug::print("Cleaning up memory.");
@@ -261,7 +264,7 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
         return;
 
     if (all(floorMod(mesh_cache_position, MESH_REGION_CONTAINER_SIZES) == floorMod(mesh_cache_info.position, MESH_REGION_CONTAINER_SIZES)))
-        saveMeshCacheToDrive(mesh_cache_info, mesh_cache_info.position);
+        saveMeshCacheToDrive(mesh_cache_info.position);
     else if (mesh_cache_info.needs_save)
         // TODO: just for debugging. remove that
         assert(0 && "Something is broken.");
@@ -849,12 +852,13 @@ BREAK_LOOP: (void)0;
 }
 
 //==============================================================================
-bool World::inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance)
+bool World::inRange(const iVec3 center, const iVec3 position, const int max_square_distance)
 {
-    const iVec3 distances = position_block - center_block;
+    const iVec3 distances = position - center;
+
     const int square_distance = dot(distances, distances);
 
-    return square_distance <= square_max_distance;
+    return square_distance <= max_square_distance;
 }
 
 //==============================================================================
@@ -1090,54 +1094,53 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
 //==============================================================================
 void World::saveRegionToDrive(const iVec3 region_position)
 {
-    auto & region = m_regions[region_position];
+    const auto & region = m_regions[region_position];
 
     if (!region.needs_save)
         return;
 
-    const auto position = region.position;
-
-    // only if valid
+    // save only if valid
     assert(all(region_position == region.position) && "Trying to save invalid region.");
 
-    // save old region
-    Debug::print("Saving region ", toString(position));
-    assert(region.data != nullptr && "No idea why this can happen.");
+    // save region
+    Debug::print("Saving region ", toString(region.position));
+    assert((region.size == 0 && region.data == nullptr || region.size > 0 && region.data != nullptr) && "Data structure is broken.");
 
-    std::string file_name = WORLD_ROOT + toString(position);
+    const std::string file_name = WORLD_ROOT + toString(region.position);
     std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
-    file.write(reinterpret_cast<const char *>(&region.size), sizeof(int));
+    file.write(reinterpret_cast<const char *>(&region.size), sizeof(region.size));
     file.write(reinterpret_cast<const char *>(region.metas.begin()), sizeof(region.metas));
-    file.write(reinterpret_cast<const char *>(region.data), region.size);
+    if (region.size > 0)
+        file.write(reinterpret_cast<const char *>(region.data), region.size);
 
     if (!file.good()) std::runtime_error("Writing file failed.");
-
 }
 
 //==============================================================================
-// TODO: refactor: should not need to take both mesh_cache and first_delete_that_it_s_just_for_testing
-void World::saveMeshCacheToDrive(const MeshCache & mesh_cache, const iVec3 first_delete_that_it_s_just_for_testing)
+void World::saveMeshCacheToDrive(const iVec3 mesh_cache_position)
 {
+    const auto & mesh_cache = m_mesh_cache_infos[mesh_cache_position];
+
     if (!mesh_cache.needs_save)
         return;
 
-    const auto position = mesh_cache.position;
+    // save only if valid
+    assert(all(mesh_cache_position == mesh_cache.position) && "Trying to save invalid mesh cache.");
 
-    assert(all(first_delete_that_it_s_just_for_testing == mesh_cache.position) && "Trying to save invalid mesh cache.");
+    // save mesh cache
+    Debug::print("Saving mesh cache ", toString(mesh_cache.position));
+    assert((mesh_cache.size == 0 && mesh_cache.data == nullptr || mesh_cache.size > 0 && mesh_cache.data != nullptr) && "Data structure is broken.");
 
-    // save old mesh cache
-    Debug::print("Saving mesh cache ", toString(position));
-
-    std::string file_name = MESH_CACHE_ROOT + toString(position);
+    const std::string file_name = MESH_CACHE_ROOT + toString(mesh_cache.position);
     std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
     file.write(reinterpret_cast<const char *>(&mesh_cache.size), sizeof(int));
     file.write(reinterpret_cast<const char *>(mesh_cache.info.begin()), sizeof(mesh_cache.info));
-    file.write(reinterpret_cast<const char *>(mesh_cache.data), mesh_cache.size);
+    if (mesh_cache.size > 0)
+        file.write(reinterpret_cast<const char *>(mesh_cache.data), mesh_cache.size);
 
     if (!file.good()) std::runtime_error("Writing file failed.");
-
 }
 
 //==============================================================================

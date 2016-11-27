@@ -177,20 +177,19 @@ private:
     void smallBlockChunk(const iVec3 from_block);
     void floorChunk(const iVec3 from_block);
     void meshLoader();
-    bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
     void saveChunkToRegion(const iVec3 chunk_position);
-    void saveRegionToDrive(const iVec3 region_position);
-    void saveMeshCacheToDrive(const MeshCache & mesh_cache, const iVec3 first_delete_that_it_s_just_for_testing);
     MeshCache::Status meshStatus(const iVec3 mesh_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
-
 
     // cleaned up:
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
     void loadChunkToChunkContainer(const iVec3 chunk_position);
+    bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
+    void saveRegionToDrive(const iVec3 region_position);
+    void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
 
 };
