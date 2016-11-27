@@ -774,6 +774,7 @@ void World::meshLoader()
                             {
                                 m_commands.discardPush();
                             }
+                            // save even if mesh.size() == 0
                             saveMeshToMeshCache(current, mesh);
 
                             m_loaded_meshes.push_back({ current, mesh.size() == 0 });
@@ -1051,47 +1052,45 @@ bool World::meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset)
 //==============================================================================
 void World::saveChunkToRegion(const iVec3 chunk_position)
 {
-    // TODO: check if needs_save and set later to false
-
-    assert(all(m_chunk_statuses[chunk_position].position == chunk_position) && "Something broke.");
-    // load correct region file
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+    auto & region = m_regions[region_position];
 
+    if (!m_chunk_statuses[chunk_position].needs_save)
+        return;
+
+    assert(all(m_chunk_statuses[chunk_position].position == chunk_position) && "Broken data structure.");
+
+    // load correct region
     loadRegion(region_position);
 
-    // compress chunk
-    uLong destination_length = compressBound(static_cast<uLong>(CHUNK_DATA_SIZE)); // compressBound could be static
+    uLong destination_length = compressBound(static_cast<uLong>(CHUNK_DATA_SIZE));
 
-    auto & cache = m_regions[region_position];
-    assert(cache.size <= cache.container_size && "Capacity should always be more than size.");
+    assert(region.size <= region.container_size && "Capacity should always be more or equal as size.");
 
     // resize if potentially out of space
-    if (cache.size + static_cast<int>(destination_length) > cache.container_size)
+    if (region.size + static_cast<int>(destination_length) > region.container_size)
     {
         Debug::print("Reallocating region container.");
-        cache.container_size += REGION_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : REGION_DATA_SIZE_FACTOR;
-        cache.data = (Bytef*)std::realloc(cache.data, static_cast<std::size_t>(cache.container_size));
+        region.container_size += REGION_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : REGION_DATA_SIZE_FACTOR;
+        region.data = (Bytef*)std::realloc(region.data, static_cast<std::size_t>(region.container_size));
     }
 
     const auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZES); // address of first block
-    Bytef * destination = cache.data + cache.size;
+    Bytef * destination = region.data + region.size;
 
-    // TODO: checkout other compression libraries that are faster
-    // compress and save at once data to region
-
-    // TODO: profile how much it is compressed
+    // compress and save chunk to region
     auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(beginning_of_chunk), static_cast<uLong>(CHUNK_DATA_SIZE), Z_BEST_SPEED);
 
     assert(result == Z_OK && "Error compressing chunk.");
     assert(destination_length <= compressBound(static_cast<uLong>(CHUNK_DATA_SIZE)) && "ZLib lied about the maximum possible size of compressed data.");
 
-    auto & chunk_meta = cache.metas[chunk_position];
+    auto & chunk_meta = region.metas[chunk_position];
 
     chunk_meta.size = static_cast<int>(destination_length);
-    chunk_meta.offset = cache.size;
+    chunk_meta.offset = region.size;
 
-    cache.size += static_cast<int>(destination_length);
-    cache.needs_save = true;
+    region.size += static_cast<int>(destination_length);
+    region.needs_save = true;
 }
 
 //==============================================================================
@@ -1152,55 +1151,53 @@ void World::saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Ver
     const auto new_status = mesh.size() == 0 ? MeshCache::Status::EMPTY : MeshCache::Status::NON_EMPTY;
 
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
-
     auto & mesh_cache = m_mesh_caches[mesh_cache_position];
 
-    if (!all(mesh_cache.position == mesh_cache_position))
-        loadMeshCache(mesh_cache_position);
+    // load correct mesh cache
+    loadMeshCache(mesh_cache_position);
+
+    assert(all(mesh_cache.position == mesh_cache_position) && "Broken data structure.");
 
     // save new mesh status
-    assert(mesh_cache.infos[mesh_position].status != new_status && "Could indicate a bug.");
-    mesh_cache.infos[mesh_position].status = new_status;
+    auto & mesh_info = mesh_cache.infos[mesh_position];
+    assert(mesh_info.status != new_status && "Not an issue but if could indicate a bug.");
+    mesh_info.status = new_status;
     mesh_cache.needs_save = true;
 
     if (new_status == MeshCache::Status::EMPTY)
+    {
+        mesh_info.vertex_count = 0;
+        mesh_info.compressed_size = 0;
+        mesh_info.offset = 0;
         return;
+    }
 
     // compress mesh
     uLong destination_length = compressBound(static_cast<uLong>(mesh.size()) * sizeof(mesh[0]));
 
-    auto & cache = m_mesh_caches[mesh_cache_position];
-    assert(cache.size <= cache.container_size && "Capacity should always be more than size.");
+    assert(mesh_cache.size <= mesh_cache.container_size && "Capacity should always be more or equal as size.");
 
     // resize if potentially out of space
-    if (cache.size + static_cast<int>(destination_length) > cache.container_size)
+    if (mesh_cache.size + static_cast<int>(destination_length) > mesh_cache.container_size)
     {
         Debug::print("Reallocating mesh container.");
-        cache.container_size += MESH_CACHE_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : MESH_CACHE_DATA_SIZE_FACTOR;
-        // realloc(nullptr) acts as malloc
-        cache.data = (Bytef*)std::realloc(cache.data, static_cast<std::size_t>(cache.container_size));
+        mesh_cache.container_size += MESH_CACHE_DATA_SIZE_FACTOR < static_cast<int>(destination_length) ? static_cast<int>(destination_length) : MESH_CACHE_DATA_SIZE_FACTOR;
+        mesh_cache.data = (Bytef*)std::realloc(mesh_cache.data, static_cast<std::size_t>(mesh_cache.container_size));
     }
 
-    Bytef * destination = cache.data + cache.size;
+    Bytef * destination = mesh_cache.data + mesh_cache.size;
 
-    // TODO: checkout other compression libraries that are faster
-    // compress and save at once data to region
-
-    // TODO: profile how much it is compressed
     auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(mesh.data()), static_cast<uLong>(mesh.size() * sizeof(mesh[0])), Z_BEST_SPEED);
-
-    //Debug::print("Compression ratio: ", static_cast<double>(destination_length) / (mesh.size() * sizeof(mesh[0])));
 
     assert(result == Z_OK && "Error compressing mesh.");
     assert(destination_length <= compressBound(static_cast<uLong>(mesh.size() * sizeof(mesh[0]))) && "ZLib lied about the maximum possible size of compressed data.");
 
-    // TODO: index from mesh_position will be recalculated in operator[]. Add ModTable functions that take index
-    cache.infos[mesh_position].compressed_size= static_cast<int>(destination_length);
-    cache.infos[mesh_position].decompressed_size= static_cast<int>(mesh.size());
-    cache.infos[mesh_position].offset= cache.size;
+    mesh_info.compressed_size = static_cast<int>(destination_length);
+    mesh_info.vertex_count = static_cast<int>(mesh.size());
+    mesh_info.offset = mesh_cache.size;
 
-    cache.size += static_cast<int>(destination_length);
-    cache.needs_save = true;
+    mesh_cache.size += static_cast<int>(destination_length);
+    mesh_cache.needs_save = true;
 }
 
 //==============================================================================
@@ -1214,14 +1211,12 @@ std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
     if (!all(mesh_cache.position == mesh_cache_position))
         loadMeshCache(mesh_cache_position);
 
-    const auto decompressed_size = mesh_info.decompressed_size;
-
     // empty mesh
-    assert(decompressed_size > 0 && "Function should not be called for empty chunks.");
+    assert(mesh_info.vertex_count > 0 && "Function should not be called for empty chunks.");
 
-    std::vector<Vertex> mesh{ static_cast<size_t>(decompressed_size) };
+    std::vector<Vertex> mesh{ static_cast<size_t>(mesh_info.vertex_count) };
 
-    uLongf destination_length = static_cast<uLongf>(mesh.size() * sizeof(mesh[0]));
+    uLongf destination_length = static_cast<uLongf>(mesh_info.vertex_count * sizeof(mesh[0]));
 
     const auto * source = mesh_cache.data + mesh_info.offset;
 
@@ -1230,7 +1225,7 @@ std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
             source, static_cast<uLongf>(mesh_info.compressed_size)
     );
 
-    assert(result == Z_OK && destination_length == decompressed_size * sizeof(mesh[0]) && "Error in decompression.");
+    assert(result == Z_OK && destination_length == mesh_info.vertex_count * sizeof(mesh[0]) && "Error in decompression.");
 
     return mesh;
 }

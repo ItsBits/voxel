@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <GL/gl3w.h>
+// TODO: checkout other compression libraries that are faster
 #include <zlib.h>
 #include <thread>
 #include <mutex>
@@ -50,6 +51,8 @@ class World
 public:
     World();
     ~World();
+
+    // TODO: refactor
     void draw(const iVec3 new_center, const fVec4 frustum_planes[6]);
 
 private:
@@ -58,7 +61,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 14 },
+            RDISTANCE{ 8 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -142,7 +145,7 @@ private:
     struct MeshCache
     {
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
-        struct MeshCacheInfo { Status status; int decompressed_size; int compressed_size; int offset; };
+        struct MeshCacheInfo { Status status; int vertex_count; int compressed_size; int offset; };
 
         iVec3 position;
         int size, container_size;
@@ -167,12 +170,9 @@ private:
     //==============================================================================
     // functions
 
+    // TODO: refactor following functions
     void meshLoader();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
-
-    void saveChunkToRegion(const iVec3 chunk_position);
-    void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
-
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
     void emptyChunk(const iVec3 from_block, const iVec3 to_block);
     void debugChunk(const iVec3 from_block, const iVec3 to_block);
@@ -194,5 +194,7 @@ private:
     Block & getBlock(const iVec3 block_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
     void loadRegion(const iVec3 region_position);
+    void saveChunkToRegion(const iVec3 chunk_position);
+    void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
 
 };
