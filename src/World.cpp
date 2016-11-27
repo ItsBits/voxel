@@ -181,7 +181,8 @@ int World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
         for (it(1) = chunk_position_from(1); it(1) <= chunk_position_to(1); ++it(1))
             for (it(0) = chunk_position_from(0); it(0) <= chunk_position_to(0); ++it(0))
             {
-                chunks_loaded += loadChunk(it);
+                //chunks_loaded += loadChunkToChunkContainer(it);
+                loadChunkToChunkContainer(it);
             }
 
     Profiler::add(Profiler::Task::ChunksLoaded, chunks_loaded);
@@ -307,54 +308,59 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
 }
 
 //==============================================================================
-int World::loadChunk(const iVec3 chunk_position)
+void World::loadChunkToChunkContainer(const iVec3 chunk_position)
 {
     auto & chunk_status = m_chunk_statuses[chunk_position];
 
     // if already loaded
     if (all(chunk_status.position == chunk_position))
-      return 0;
+        return;
 
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+    const auto & chunk_region = m_regions[region_position];
+
+    // load region of new chunk
+    if (!all(chunk_region.position == region_position))
+        loadRegion(region_position);
 
     // save previous chunk
     if (chunk_status.needs_save)
         saveChunkToRegion(chunk_status.position);
 
-    // load region of new chunk
-    loadRegion(region_position);
+    auto & chunk_meta = chunk_region.metas[chunk_position];
 
-    auto & chunk_meta = m_regions[region_position].metas[chunk_position];
+    // update mesh status
+    chunk_status.position = chunk_position;
+    chunk_status.needs_save = false;
 
     // generate new chunk
     if (chunk_meta.size == 0)
     {
         generateChunk(chunk_position * CHUNK_SIZES);
-        chunk_status.position = chunk_position;
-        chunk_status.needs_save = true; // TODO: maybe immediately save to region
+
+        chunk_status.needs_save = true;
+
+        // immediately save chunk to region
+        saveChunkToRegion(chunk_position);
     }
     // load chunk from region
     else
     {
-        auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZES); // address of first block
+        // address of first block
+        auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZES);
 
         // load chunk from region
         uLongf destination_length = static_cast<uLongf>(CHUNK_DATA_SIZE);
-        const auto off = chunk_meta.offset;
-        const auto siz = chunk_meta.size;
 
-        const auto * source = m_regions[region_position].data + off;
+        const auto * source = chunk_region.data + chunk_meta.offset;
+
         auto result = uncompress(
                 reinterpret_cast<Bytef *>(beginning_of_chunk), &destination_length,
-                source, static_cast<uLongf>(siz)
+                source, static_cast<uLongf>(chunk_meta.size)
         );
+
         assert(result == Z_OK && destination_length == CHUNK_DATA_SIZE && "Error in decompression.");
-
-        chunk_status.position = chunk_position;
-        chunk_status.needs_save = false;
     }
-
-    return 1;
 }
 
 //==============================================================================
@@ -980,13 +986,12 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
 //==============================================================================
 void World::exitLoaderThread()
 {
-    if (!m_loader_thread.joinable())
-    {
-        assert(0 && "Why is loader not joinable?");
-        return;
-    }
+    assert(m_loader_thread.joinable() && "Loader thread is not joinable.");
 
     m_quit = true;
+
+    if (!m_loader_thread.joinable())
+        return;
 
     m_loader_thread.join();
 }
@@ -1039,6 +1044,8 @@ bool World::meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset)
 //==============================================================================
 void World::saveChunkToRegion(const iVec3 chunk_position)
 {
+    // TODO: check if needs_save
+
     assert(all(m_chunk_statuses[chunk_position].position == chunk_position) && "Something broke.");
     // load correct region file
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
@@ -1195,32 +1202,29 @@ std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
 {
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
 
-    auto & mesh_cache = m_mesh_cache_infos[mesh_cache_position];
+    const auto & mesh_cache = m_mesh_cache_infos[mesh_cache_position];
+    const auto & mesh_info = mesh_cache.info[mesh_position];
 
     if (!all(mesh_cache.position == mesh_cache_position))
         loadMeshCache(mesh_cache_position);
 
-    const auto & decompressed_size = mesh_cache.info[mesh_position].decompressed_size;
+    const auto decompressed_size = mesh_info.decompressed_size;
 
     // empty mesh
-    if (decompressed_size == 0)
-    {
-        assert(0 && "Function should not be called for empty chunks.");
-    }
-    // load mesh from mesh cache
-    else
-    {
-        std::vector<Vertex> mesh{ static_cast<size_t>(decompressed_size) };
-        uLongf destination_length = static_cast<uLongf>(mesh.size() * sizeof(mesh[0]));
+    assert(decompressed_size > 0 && "Function should not be called for empty chunks.");
 
-        const auto off = mesh_cache.info[mesh_position].offset;
-        const auto * source = mesh_cache.data + off;
-        auto result = uncompress(
-                reinterpret_cast<Bytef *>(mesh.data()), &destination_length,
-                source, static_cast<uLongf>(mesh_cache.info[mesh_position].compressed_size)
-        );
-        assert(result == Z_OK && destination_length == decompressed_size * sizeof(mesh[0]) && "Error in decompression.");
+    std::vector<Vertex> mesh{ static_cast<size_t>(decompressed_size) };
 
-        return mesh;
-    }
+    uLongf destination_length = static_cast<uLongf>(mesh.size() * sizeof(mesh[0]));
+
+    const auto * source = mesh_cache.data + mesh_info.offset;
+
+    auto result = uncompress(
+            reinterpret_cast<Bytef *>(mesh.data()), &destination_length,
+            source, static_cast<uLongf>(mesh_info.compressed_size)
+    );
+
+    assert(result == Z_OK && destination_length == decompressed_size * sizeof(mesh[0]) && "Error in decompression.");
+
+    return mesh;
 }

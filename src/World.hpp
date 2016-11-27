@@ -169,7 +169,6 @@ private:
 
     Block & getBlock(const iVec3 block_position);
     int loadChunkRange(const iVec3 from_block, const iVec3 to_block);
-    int loadChunk(const iVec3 chunk_position);
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
     static unsigned char vertAO(const bool side_a, const bool side_b, const bool corner);
     void generateChunk(const iVec3 from_block);
@@ -179,7 +178,6 @@ private:
     void floorChunk(const iVec3 from_block);
     void meshLoader();
     bool inRange(const iVec3 center_block, const iVec3 position_block, const int square_max_distance);
-    void exitLoaderThread();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
@@ -188,6 +186,11 @@ private:
     void saveMeshCacheToDrive(const MeshCache & mesh_cache, const iVec3 first_delete_that_it_s_just_for_testing);
     MeshCache::Status meshStatus(const iVec3 mesh_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
+
+
+    // cleaned up:
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
+    void exitLoaderThread();
+    void loadChunkToChunkContainer(const iVec3 chunk_position);
 
 };
