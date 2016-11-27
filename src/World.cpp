@@ -171,25 +171,19 @@ Block & World::getBlock(const iVec3 block_position)
 }
 
 //==============================================================================
-int World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
+void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 {
+    assert(all(from_block < to_block) && "From values must be lower than to values.");
+
     const auto chunk_position_from = floorDiv(from_block, CHUNK_SIZES);
     const auto chunk_position_to = floorDiv(to_block - 1, CHUNK_SIZES);
 
-    iVec3 it;
+    iVec3 position;
 
-    int chunks_loaded = 0;
-
-    for (it(2) = chunk_position_from(2); it(2) <= chunk_position_to(2); ++it(2))
-        for (it(1) = chunk_position_from(1); it(1) <= chunk_position_to(1); ++it(1))
-            for (it(0) = chunk_position_from(0); it(0) <= chunk_position_to(0); ++it(0))
-            {
-                //chunks_loaded += loadChunkToChunkContainer(it);
-                loadChunkToChunkContainer(it);
-            }
-
-    Profiler::add(Profiler::Task::ChunksLoaded, chunks_loaded);
-    return chunks_loaded;
+    for (position(2) = chunk_position_from(2); position(2) <= chunk_position_to(2); ++position(2))
+        for (position(1) = chunk_position_from(1); position(1) <= chunk_position_to(1); ++position(1))
+            for (position(0) = chunk_position_from(0); position(0) <= chunk_position_to(0); ++position(0))
+                loadChunkToChunkContainer(position);
 }
 
 //==============================================================================
@@ -339,7 +333,8 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
     // generate new chunk
     if (chunk_meta.size == 0)
     {
-        generateChunk(chunk_position * CHUNK_SIZES);
+        const auto from_block = chunk_position * CHUNK_SIZES;
+        generateChunk(from_block, from_block + CHUNK_SIZES, WorldType::SINE);
 
         chunk_status.needs_save = true;
 
@@ -369,13 +364,9 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
 //==============================================================================
 std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_block)
 {
-    Profiler::add(Profiler::Task::MeshesGenerated, 1);
-
     iVec3 position;
     std::vector<Vertex> mesh;
 
-    // TODO: try to iterate over indices instead of coordinates and write functions indexPlus1x(), indexPlus1y(), indexPlus1z(), indexMinus1x(), indexMinus1y(),indexMinus1z()
-    // TODO: and see if it is faster
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
             for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
@@ -384,6 +375,7 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
 
                 if (block.isEmpty()) continue;
 
+                // X + 1
                 if (getBlock({ position(0) + 1, position(1), position(2) }).isEmpty())
                 {
                     const bool aos[8]{
@@ -399,10 +391,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     };
 
                     const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
-                            vertAO(aos[0], aos[3], aos[5]),
-                            vertAO(aos[2], aos[3], aos[6]),
-                            vertAO(aos[0], aos[1], aos[4]),
-                            vertAO(aos[2], aos[1], aos[7])
+                            vertexAO(aos[0], aos[3], aos[5]),
+                            vertexAO(aos[2], aos[3], aos[6]),
+                            vertexAO(aos[0], aos[1], aos[4]),
+                            vertexAO(aos[2], aos[1], aos[7])
                     } * SHADDOW_STRENGTH;
 
                     mesh.push_back({ { position(0) + 1, position(1)    , position(2) + 1 }, block.get(), ao_result });
@@ -410,6 +402,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     mesh.push_back({ { position(0) + 1, position(1) + 1, position(2)     }, block.get(), ao_result });
                     mesh.push_back({ { position(0) + 1, position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                 }
+
+                // X - 1
                 if (getBlock({ position(0) - 1, position(1), position(2) }).isEmpty())
                 {
                     const bool aos[8]{
@@ -425,10 +419,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     };
 
                     const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
-                            vertAO(aos[0], aos[1], aos[4]),
-                            vertAO(aos[2], aos[1], aos[7]),
-                            vertAO(aos[0], aos[3], aos[5]),
-                            vertAO(aos[2], aos[3], aos[6])
+                            vertexAO(aos[0], aos[1], aos[4]),
+                            vertexAO(aos[2], aos[1], aos[7]),
+                            vertexAO(aos[0], aos[3], aos[5]),
+                            vertexAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
                     mesh.push_back({ { position(0)    , position(1)    , position(2)     }, block.get(), ao_result });
@@ -436,6 +430,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     mesh.push_back({ { position(0)    , position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                     mesh.push_back({ { position(0)    , position(1) + 1, position(2)     }, block.get(), ao_result });
                 }
+
+                // Y + 1
                 if (getBlock({ position(0), position(1) + 1, position(2) }).isEmpty())
                 {
                     const bool aos[8]{
@@ -451,10 +447,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     };
 
                     const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
-                            vertAO(aos[2], aos[1], aos[7]),
-                            vertAO(aos[2], aos[3], aos[6]),
-                            vertAO(aos[0], aos[1], aos[4]),
-                            vertAO(aos[0], aos[3], aos[5])
+                            vertexAO(aos[2], aos[1], aos[7]),
+                            vertexAO(aos[2], aos[3], aos[6]),
+                            vertexAO(aos[0], aos[1], aos[4]),
+                            vertexAO(aos[0], aos[3], aos[5])
                     } * SHADDOW_STRENGTH;
 
                     mesh.push_back({ { position(0) + 1, position(1) + 1, position(2)     }, block.get(), ao_result });
@@ -462,6 +458,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     mesh.push_back({ { position(0)    , position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                     mesh.push_back({ { position(0) + 1, position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                 }
+
+                // Y - 1
                 if (getBlock({ position(0), position(1) - 1, position(2) }).isEmpty())
                 {
                     const bool aos[8]{
@@ -477,10 +475,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     };
 
                     const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
-                            vertAO(aos[0], aos[1], aos[4]),
-                            vertAO(aos[0], aos[3], aos[5]),
-                            vertAO(aos[2], aos[1], aos[7]),
-                            vertAO(aos[2], aos[3], aos[6])
+                            vertexAO(aos[0], aos[1], aos[4]),
+                            vertexAO(aos[0], aos[3], aos[5]),
+                            vertexAO(aos[2], aos[1], aos[7]),
+                            vertexAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
                     mesh.push_back({ { position(0)    , position(1)    , position(2)     }, block.get(), ao_result });
@@ -488,6 +486,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     mesh.push_back({ { position(0) + 1, position(1)    , position(2) + 1 }, block.get(), ao_result });
                     mesh.push_back({ { position(0)    , position(1)    , position(2) + 1 }, block.get(), ao_result });
                 }
+
+                // Z + 1
                 if (getBlock({ position(0), position(1), position(2) + 1 }).isEmpty())
                 {
                     const bool aos[8]{
@@ -503,10 +503,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     };
 
                     const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
-                            vertAO(aos[0], aos[1], aos[4]),
-                            vertAO(aos[0], aos[3], aos[5]),
-                            vertAO(aos[2], aos[1], aos[7]),
-                            vertAO(aos[2], aos[3], aos[6])
+                            vertexAO(aos[0], aos[1], aos[4]),
+                            vertexAO(aos[0], aos[3], aos[5]),
+                            vertexAO(aos[2], aos[1], aos[7]),
+                            vertexAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
                     mesh.push_back({ { position(0)    , position(1)    , position(2) + 1 }, block.get(), ao_result });
@@ -514,6 +514,8 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     mesh.push_back({ { position(0) + 1, position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                     mesh.push_back({ { position(0)    , position(1) + 1, position(2) + 1 }, block.get(), ao_result });
                 }
+
+                // Z - 1
                 if (getBlock({ position(0), position(1), position(2) - 1 }).isEmpty())
                 {
                     const bool aos[8]{
@@ -529,10 +531,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     };
 
                     const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
-                            vertAO(aos[2], aos[1], aos[7]),
-                            vertAO(aos[2], aos[3], aos[6]),
-                            vertAO(aos[0], aos[1], aos[4]),
-                            vertAO(aos[0], aos[3], aos[5])
+                            vertexAO(aos[2], aos[1], aos[7]),
+                            vertexAO(aos[2], aos[3], aos[6]),
+                            vertexAO(aos[0], aos[1], aos[4]),
+                            vertexAO(aos[0], aos[3], aos[5])
                     } * SHADDOW_STRENGTH;
 
                     mesh.push_back({ { position(0) + 1, position(1)    , position(2)     }, block.get(), ao_result });
@@ -546,7 +548,7 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
 }
 
 //==============================================================================
-unsigned char World::vertAO(const bool side_a, const bool side_b, const bool corner)
+unsigned char World::vertexAO(const bool side_a, const bool side_b, const bool corner)
 {
   if (side_a && side_b) return 3;
 
@@ -557,19 +559,32 @@ unsigned char World::vertAO(const bool side_a, const bool side_b, const bool cor
 }
 
 //==============================================================================
-void World::generateChunk(const iVec3 from_block)
+void World::generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type)
 {
-    sineChunk(from_block);
-    //debugChunk(from_block);
-    //smallBlockChunk(from_block);
-    //floorChunk(from_block);
+    switch(world_type)
+    {
+        case WorldType::SINE: sineChunk(from_block, to_block); break;
+        case WorldType::DEBUG: debugChunk(from_block, to_block); break;
+        case WorldType::SMALL_BLOCK: smallBlockChunk(from_block, to_block); break;
+        case WorldType::FLOOR: floorChunk(from_block, to_block); break;
+        case WorldType::EMPTY: default: emptyChunk(from_block, to_block); break;
+    }
 }
 
 //==============================================================================
-void World::debugChunk(const iVec3 from_block)
+void World::emptyChunk(const iVec3 from_block, const iVec3 to_block)
 {
-    const iVec3 to_block = from_block + CHUNK_SIZES;
+    iVec3 position;
 
+    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
+        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
+            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+                getBlock(position) = Block{ 0 };
+}
+
+//==============================================================================
+void World::debugChunk(const iVec3 from_block, const iVec3 to_block)
+{
     iVec3 position;
 
     const auto pos_maybe = floorDiv(from_block, CHUNK_SIZES);
@@ -591,10 +606,8 @@ void World::debugChunk(const iVec3 from_block)
 }
 
 //==============================================================================
-void World::floorChunk(const iVec3 from_block)
+void World::floorChunk(const iVec3 from_block, const iVec3 to_block)
 {
-    const iVec3 to_block = from_block + CHUNK_SIZES;
-
     iVec3 position;
 
     const iVec3 pos_chunk = floorMod(floorDiv(from_block, CHUNK_SIZES), iVec3{ 2, 2, 2 });
@@ -607,10 +620,8 @@ void World::floorChunk(const iVec3 from_block)
 }
 
 //==============================================================================
-void World::smallBlockChunk(const iVec3 from_block)
+void World::smallBlockChunk(const iVec3 from_block, const iVec3 to_block)
 {
-    const iVec3 to_block = from_block + CHUNK_SIZES;
-
     iVec3 position;
 
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
@@ -628,10 +639,8 @@ void World::smallBlockChunk(const iVec3 from_block)
 }
 
 //==============================================================================
-void World::sineChunk(const iVec3 from_block)
+void World::sineChunk(const iVec3 from_block, const iVec3 to_block)
 {
-  const iVec3 to_block = from_block + CHUNK_SIZES;
-
   iVec3 position;
 
   for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))

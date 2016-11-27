@@ -44,6 +44,8 @@ struct Command
 
 struct MeshWPos { Mesh mesh; iVec3 position; };
 
+enum class WorldType { SINE, DEBUG, SMALL_BLOCK, FLOOR, EMPTY };
+
 //==============================================================================
 class World
 {
@@ -168,14 +170,6 @@ private:
     // functions
 
     Block & getBlock(const iVec3 block_position);
-    int loadChunkRange(const iVec3 from_block, const iVec3 to_block);
-    std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
-    static unsigned char vertAO(const bool side_a, const bool side_b, const bool corner);
-    void generateChunk(const iVec3 from_block);
-    void sineChunk(const iVec3 from_block);
-    void debugChunk(const iVec3 from_block);
-    void smallBlockChunk(const iVec3 from_block);
-    void floorChunk(const iVec3 from_block);
     void meshLoader();
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset);
     void loadRegion(const iVec3 region_position);
@@ -184,6 +178,13 @@ private:
     MeshCache::Status meshStatus(const iVec3 mesh_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
 
+
+    void sineChunk(const iVec3 from_block, const iVec3 to_block);
+    void emptyChunk(const iVec3 from_block, const iVec3 to_block);
+    void debugChunk(const iVec3 from_block, const iVec3 to_block);
+    void smallBlockChunk(const iVec3 from_block, const iVec3 to_block);
+    void floorChunk(const iVec3 from_block, const iVec3 to_block);
+
     // cleaned up:
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
@@ -191,5 +192,9 @@ private:
     bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
     void saveRegionToDrive(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
+    void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
+    static unsigned char vertexAO(const bool side_a, const bool side_b, const bool corner);
+    std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
+    void generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
 
 };
