@@ -129,7 +129,7 @@ World::~World()
     // delete vertex and vao buffers from active meshes
     const auto * i = m_meshes.begin();
     const auto * end = m_meshes.end();
-    for (; i != end; ++i)
+    for (; i != end; ++i) // TODO: range based for
     {
         auto & mesh_data = i->data.mesh;
 
@@ -140,7 +140,8 @@ World::~World()
         glDeleteVertexArrays(1, &mesh_data.VAO);
         glDeleteBuffers(1, &mesh_data.VBO);
 
-        m_meshes.reset();
+        // WTF is this here?
+        //m_meshes.reset();
     }
 
     // delete vertex and vao buffers from unused meshes

@@ -15,7 +15,7 @@ public:
     void add(int position, const T & data);
     void replace(int position, const T & data);
     void del(int position);
-    void reset() { new (this) SparseMap(); }
+    void reset() { this->~SparseMap(); new (this) SparseMap(); }
 
     struct Node { int node_index; T data; };
 

@@ -105,7 +105,7 @@ private:
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
     static constexpr int SLEEP_MS{ 100 };
-    static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
+    static constexpr int MAX_COMMANDS_PER_FRAME{ 16 }; // TODO: dynamic based on time left
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
