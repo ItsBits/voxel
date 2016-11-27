@@ -558,9 +558,8 @@ void World::generateChunk(const iVec3 from_block, const iVec3 to_block, const Wo
     switch(world_type)
     {
         case WorldType::SINE: sineChunk(from_block, to_block); break;
-        case WorldType::DEBUG: debugChunk(from_block, to_block); break;
         case WorldType::SMALL_BLOCK: smallBlockChunk(from_block, to_block); break;
-        case WorldType::FLOOR: floorChunk(from_block, to_block); break;
+        case WorldType::FLOOR: floorTilesChunk(from_block, to_block); break;
         case WorldType::EMPTY: default: emptyChunk(from_block, to_block); break;
     }
 }
@@ -577,35 +576,12 @@ void World::emptyChunk(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
-void World::debugChunk(const iVec3 from_block, const iVec3 to_block)
+void World::floorTilesChunk(const iVec3 from_block, const iVec3 to_block)
 {
+    const iVec3 chunk_position = floorMod(floorDiv(from_block, CHUNK_SIZES), iVec3{ 2, 2, 2 });
+    const bool even_chunk = static_cast<bool>(chunk_position(0) ^ chunk_position(2));
+
     iVec3 position;
-
-    const auto pos_maybe = floorDiv(from_block, CHUNK_SIZES);
-
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
-            {
-                Block b = 0;
-
-                const auto p = position(0) - from_block(0);
-
-                if (p < pos_maybe(0)) b = 1;
-                if (position(1) != 0 || position(2) != from_block(2)) b = 0;
-                if (pos_maybe(0) < 0) b = 0;
-
-                getBlock(position) = b;
-            }
-}
-
-//==============================================================================
-void World::floorChunk(const iVec3 from_block, const iVec3 to_block)
-{
-    iVec3 position;
-
-    const iVec3 pos_chunk = floorMod(floorDiv(from_block, CHUNK_SIZES), iVec3{ 2, 2, 2 });
-    const bool even_chunk = static_cast<bool>(pos_chunk(0) ^ pos_chunk(2));
 
     for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
         for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
@@ -645,11 +621,11 @@ void World::sineChunk(const iVec3 from_block, const iVec3 to_block)
 
           if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
           {
-              auto r = std::rand() % 16;
+              auto random_value = std::rand() % 16;
 
-              if (r < 3)
+              if (random_value < 3)
                   block = Block{ 3 };
-              else if (r < 11)
+              else if (random_value < 11)
                   block = Block{ 2 };
               else
                   block = Block{ 1 };

@@ -43,14 +43,14 @@ struct Command
 
 struct MeshWPos { Mesh mesh; iVec3 position; };
 
-enum class WorldType { SINE, DEBUG, SMALL_BLOCK, FLOOR, EMPTY };
+enum class WorldType { SINE, SMALL_BLOCK, FLOOR, EMPTY };
 
 //==============================================================================
 class World
 {
 public:
-    World();
-    ~World();
+    World(); // TODO: refactor
+    ~World(); // TODO: refactor
 
     void draw(const iVec3 new_center, const fVec4 frustum_planes[6]);
 
@@ -106,7 +106,6 @@ private:
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
     static constexpr int SLEEP_MS{ 100 };
     static constexpr int MAX_COMMANDS_PER_FRAME{ 4 };
-    static constexpr int SQUARE_LOAD_RESET_DISTANCE{ MSIZE * 2 };
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
@@ -171,11 +170,6 @@ private:
 
     void meshLoader(); // TODO: refactor
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset); // TODO: refactor
-    void sineChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
-    void emptyChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
-    void debugChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
-    void smallBlockChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
-    void floorChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
 
     // renderer functions
     void executeRendererCommands(const int max_command_count);
@@ -195,6 +189,11 @@ private:
     void loadRegion(const iVec3 region_position);
     void saveChunkToRegion(const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
+
+    void sineChunk(const iVec3 from_block, const iVec3 to_block);
+    void emptyChunk(const iVec3 from_block, const iVec3 to_block);
+    void smallBlockChunk(const iVec3 from_block, const iVec3 to_block);
+    void floorTilesChunk(const iVec3 from_block, const iVec3 to_block);
 
     // shared functions
     static bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);
