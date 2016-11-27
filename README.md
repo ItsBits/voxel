@@ -5,3 +5,6 @@ Keep in mind that this is a work in progress and a lot of TODOs and other text i
 ## License:
 All rights reserved.
 
+## Screenshots:
+![27.11.2016](screenshots/demo_27_11_2016.png "27.11.2016")
+
