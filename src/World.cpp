@@ -868,88 +868,84 @@ bool World::inRange(const iVec3 center, const iVec3 position, const int max_squa
 //==============================================================================
 void World::executeRendererCommands(const int max_command_count)
 {
-    Command * command = nullptr;
-    int commands_executed = 0;
+    auto commands_executed = 0;
 
-    do
+    while (commands_executed++ < max_command_count)
     {
-        command = m_commands.initPop();
+        Command * command = m_commands.initPop();
 
-        // TODO: combine REMOVE and UPLOAD if-statement
+        if (command == nullptr)
+            return;
 
-        // remove out of range chunks
-        if (command != nullptr && command->type == Command::Type::REMOVE)
+        switch (command->type)
         {
-            const auto &mesh_data = m_meshes.get(command->index)->data.mesh;
-
-            if (true)
+            case Command::Type::REMOVE:
             {
+                const auto & mesh_data = m_meshes.get(command->index)->data.mesh;
+#if 1
                 assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
-                m_unused_buffers.push({mesh_data.VAO, mesh_data.VBO});
-            }
-            else
-            {
+                m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
+#else
                 glDeleteBuffers(1, &mesh_data.VBO);
                 glDeleteVertexArrays(1, &mesh_data.VAO);
+#endif
+                m_meshes.del(command->index);
             }
+            break;
+            case Command::Type::UPLOAD:
+            {
+                GLuint VAO = 0, VBO = 0;
+                if (!m_unused_buffers.empty())
+                {
+                    const auto & top = m_unused_buffers.top();
+                    VAO = top.VAO;
+                    VBO = top.VBO;
+                    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+                    m_unused_buffers.pop();
+                }
+                else
+                {
+                    glGenVertexArrays(1, &VAO);
+                    glGenBuffers(1, &VBO);
 
-            m_meshes.del(command->index);
-            m_commands.commitPop();
+                    glBindVertexArray(VAO);
+                    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+                    QuadEBO::bind();
+
+                    glVertexAttribIPointer(0, 3, GL_INT, sizeof(Vertex), (GLvoid *) (0));
+                    glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));
+                    glVertexAttribIPointer(2, 4, GL_UNSIGNED_BYTE, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position) + sizeof(Vertex::type)));
+                    glEnableVertexAttribArray(0);
+                    glEnableVertexAttribArray(1);
+                    glEnableVertexAttribArray(2);
+
+                    glBindVertexArray(0);
+                }
+
+                assert(command->mesh.size() > 0 && "Mesh size must be over 0.");
+                assert(VAO != 0 && VBO != 0 && "Failed to generate VAO and/or VBO for mesh.");
+
+                // upload mesh
+                glBufferData(GL_ARRAY_BUFFER, command->mesh.size() * sizeof(command->mesh[0]), command->mesh.data(), GL_STATIC_DRAW);
+                // fast multiply by 1.5
+                const auto EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
+                QuadEBO::resize(EBO_size);
+
+                m_meshes.add(command->index, { { VAO, VBO, EBO_size }, command->position });
+
+                // this does not deallocate and popping command queue does not call destructor
+                command->mesh.clear();
+            }
+            break;
+            default:
+            {
+                assert(0 && "Unknown command.");
+            }
+            break;
         }
 
-            // upload only after nothing left to remove
-        else if (command != nullptr && command->type == Command::Type::UPLOAD) // else if because of m_commands.commitPop(); in previous if !!! => data race in ring buffer
-        {
-            GLuint VAO = 0, VBO = 0;
-            if (!m_unused_buffers.empty())
-            {
-                const auto &top = m_unused_buffers.top();
-
-                VAO = top.VAO;
-                VBO = top.VBO;
-
-                glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-                m_unused_buffers.pop();
-            }
-            else
-            {
-                glGenVertexArrays(1, &VAO);
-                glGenBuffers(1, &VBO);
-
-                glBindVertexArray(VAO);
-                glBindBuffer(GL_ARRAY_BUFFER, VBO);
-                QuadEBO::bind();
-
-                glVertexAttribIPointer(0, 3, GL_INT, sizeof(Vertex), (GLvoid *) (0));
-                glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));
-                glVertexAttribIPointer(2, 4, GL_UNSIGNED_BYTE, sizeof(Vertex),
-                                       (GLvoid *) (sizeof(Vertex::position) + sizeof(Vertex::type)));
-                glEnableVertexAttribArray(0);
-                glEnableVertexAttribArray(1);
-                glEnableVertexAttribArray(2);
-
-                glBindVertexArray(0);
-            }
-            assert(command->mesh.size() > 0 && "Mesh size must be over 0.");
-
-            assert(VAO != 0 && VBO != 0 && "Failed to gent VAO and VBO for mesh.");
-
-            // upload mesh
-            glBufferData(GL_ARRAY_BUFFER, command->mesh.size() * sizeof(command->mesh[0]), command->mesh.data(),
-                         GL_STATIC_DRAW);
-            // fast multiply by 1.5
-            const int EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
-            QuadEBO::resize(EBO_size);
-
-            m_meshes.add(command->index, {{VAO, VBO, EBO_size}, command->position});
-
-            // TODO: make loader thread clean up this data
-            command->mesh.clear(); // does not deallocate to reduce space but whatever TODO: should replace with flat array anyway
-            m_commands.commitPop();
-        }
+        m_commands.commitPop();
     }
-    while(command != nullptr && commands_executed++ < max_command_count);
 }
 
 //==============================================================================

@@ -178,7 +178,7 @@ private:
     void floorChunk(const iVec3 from_block, const iVec3 to_block); // TODO: refactor
 
     // renderer functions
-    void executeRendererCommands(const int max_command_count); // TODO: refactor
+    void executeRendererCommands(const int max_command_count);
 
     // loader functions
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
