@@ -224,8 +224,15 @@ void World::loadRegion(const iVec3 region_position)
         file.read(reinterpret_cast<char *>(&region.size), sizeof(region.size));
         file.read(reinterpret_cast<char *>(region.metas.begin()), sizeof(region.metas));
 
-        region.data = (Bytef *)std::malloc(static_cast<std::size_t>(region.size));
-        file.read(reinterpret_cast<char *>(region.data), region.size);
+        if (region.size > 0)
+        {
+            region.data = (Bytef *) std::malloc(static_cast<std::size_t>(region.size));
+            file.read(reinterpret_cast<char *>(region.data), region.size);
+        }
+        else
+        {
+            region.data = nullptr;
+        }
 
         region.container_size = region.size;
 
@@ -274,8 +281,15 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
         file.read(reinterpret_cast<char *>(&mesh_cache.size), sizeof(mesh_cache.size));
         file.read(reinterpret_cast<char *>(mesh_cache.infos.begin()), sizeof(mesh_cache.infos));
 
-        mesh_cache.data = (Bytef *)std::malloc(static_cast<std::size_t>(mesh_cache.size));
-        file.read(reinterpret_cast<char *>(mesh_cache.data), mesh_cache.size);
+        if (mesh_cache.size > 0)
+        {
+            mesh_cache.data = (Bytef *) std::malloc(static_cast<std::size_t>(mesh_cache.size));
+            file.read(reinterpret_cast<char *>(mesh_cache.data), mesh_cache.size);
+        }
+        else
+        {
+            mesh_cache.data = nullptr;
+        }
 
         mesh_cache.container_size = mesh_cache.size;
 
