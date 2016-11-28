@@ -23,6 +23,7 @@ constexpr iVec3 World::MESH_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_SIZES;
 constexpr iVec3 World::MESH_OFFSETS;
 constexpr int World::SLEEP_MS;
+constexpr int World::STALL_SLEEP_MS;
 
 //==============================================================================
 World::World() :
@@ -32,6 +33,8 @@ World::World() :
         m_quit{ false },
         m_moved_center_mesh{ false }
 {
+    //std:: cout << sizeof(std::atomic_bool) << std::endl;
+
     for (auto & status : m_chunk_statuses)
         status = { { 0, 0, 0 }, false };
     m_chunk_statuses[{ 0, 0, 0 }].position = { 1, 0, 0 };
@@ -373,6 +376,8 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
 //==============================================================================
 std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_block)
 {
+    loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
+
     iVec3 position;
     std::vector<Vertex> mesh;
 
@@ -652,194 +657,150 @@ void World::sineChunk(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
+bool World::removeOutOfRangeMeshes(const iVec3 center_mesh)
+{
+    // remove out of range meshes
+    auto count = m_loaded_meshes.size();
+
+    bool completed = true;
+
+    for (std::size_t i = 0; i < count;)
+    {
+        const auto mesh_position = m_loaded_meshes[i].position;
+
+        const auto mesh_index = positionToIndex(mesh_position, MESH_CONTAINER_SIZES);
+
+        if (!inRange(center_mesh, mesh_position, SQUARE_REMOVE_DISTANCE))
+        {
+            if (!m_loaded_meshes[i].empty)
+            {
+                auto * command = m_commands.initPush();
+
+                if (command != nullptr)
+                {
+                    command->type = Command::Type::REMOVE;
+                    command->index = mesh_index;
+                    m_commands.commitPush();
+                }
+                else
+                {
+                    Debug::print("Command buffer is full.");
+                    completed = false;
+                    break;
+                }
+            }
+            m_loaded_meshes[i] = m_loaded_meshes[--count];
+
+            assert(m_mesh_loaded[mesh_position] == Status::LOADED && "Mesh must be loaded in order to be unloaded.");
+            m_mesh_loaded[mesh_position] = Status::UNLOADED;
+        }
+        else
+        {
+            ++i;
+        }
+
+    }
+    m_loaded_meshes.resize(count);
+
+    return completed;
+}
+
+//==============================================================================
 void World::meshLoader()
 {
     while (!m_quit)
     {
-        Profiler::resetAll();
         Debug::print("New loader thread loop.");
 
+        m_moved_center_mesh = false; // reset flag
+
         const iVec3 center_mesh = m_center_mesh.load();
-        bool buffer_stall = false;
 
-        // remove out of range meshes
-        std::size_t count = m_loaded_meshes.size();
-        Debug::print("Loaded meshes count: ", count);
-        for (std::size_t i = 0; i < count;)
-        {
-            const iVec3 mesh_pos = m_loaded_meshes[i].position;
-            const auto test_position_DELETE_QUESTIONMARK = m_loaded_meshes[i].position;
-            const auto mesh_relative = floorMod(m_loaded_meshes[i].position, MESH_CONTAINER_SIZES);
-            const auto mesh_index = toIndex(mesh_relative, MESH_CONTAINER_SIZES);
+        bool buffer_stall = !removeOutOfRangeMeshes(center_mesh);
 
-            if (!inRange(center_mesh, mesh_pos, SQUARE_REMOVE_DISTANCE))
-            {
-                if (!m_loaded_meshes[i].empty)
-                {
-                    Command * command = m_commands.initPush();
-                    if (command != nullptr)
-                    {
-                        command->type = Command::Type::REMOVE;
-                        command->index = mesh_index;
-                        m_commands.commitPush();
-                        Profiler::add(Profiler::Task::DeleteCommandsSubmitted, 1);
-                    }
-                    else
-                    {
-                        Debug::print("Command buffer is full.");
-                        buffer_stall = true;
-                        break;
-                    }
-                }
-                m_loaded_meshes[i] = m_loaded_meshes[--count];
-                assert(m_mesh_loaded[test_position_DELETE_QUESTIONMARK] == Status::LOADED && "Mesh must be loaded in order to be unloaded.");
-                m_mesh_loaded[test_position_DELETE_QUESTIONMARK] = Status::UNLOADED;
-            }
-            else
-            {
-                ++i;
-            }
-
-        }
-        m_loaded_meshes.resize(count);
-
-        m_moved_center_mesh = false;
-
-        bool new_stuff_found = false;
-        // TODO: figure out when to reset queue
-
-        // load new meshes
         if (!buffer_stall)
         {
-            int iterator = 0;
-
-            // main loader loop
-            while (iterator < m_iterator.m_points.size() && !m_moved_center_mesh && !m_quit)
+            for (const auto &iterator : m_iterator.m_points)
             {
-                // TODO: don't always start from scratch use reference positions from where to start when moving
-                assert(iterator < m_iterator.m_points.size() && "Out of bounds.");
-                const auto current = m_iterator.m_points[iterator++] + center_mesh;
+                if (m_moved_center_mesh || m_quit)
+                    break;
 
-                // or better just make the m_iterator size correct so break on iterator < m_iterator.m_points.size() is useful
-                // TODO: should + .. really be there?
-                if (!inRange(center_mesh, current, SQUARE_RENDER_DISTANCE))
+                const auto current_mesh_position = iterator + center_mesh;
+
+                assert(inRange(center_mesh, current_mesh_position, SQUARE_RENDER_DISTANCE) &&
+                       "Iterator constructor should make sure this does not happen.");
+
+                if (m_mesh_loaded[current_mesh_position] != Status::UNLOADED)
+                    continue;
+
+                const auto mesh_status = getMeshStatus(current_mesh_position);
+
+                if (mesh_status == MeshCache::Status::EMPTY)
                 {
-                    assert(0 && "Implemented something that should not allow this to ever happen.");
-                    Debug::print("Break because out of range.");
+                    // update mesh state
+                    m_mesh_loaded[current_mesh_position] = Status::LOADED;
+                    m_loaded_meshes.push_back({current_mesh_position, true});
+                    continue;
+                }
+
+                auto * command = m_commands.initPush();
+
+                decltype(command->mesh) mesh;
+
+                // buffer is full
+                if (command == nullptr)
+                {
+                    buffer_stall = true;
                     break;
                 }
 
-                const auto current_index = positionToIndex(current, MESH_CONTAINER_SIZES);
+                assert(mesh_status == MeshCache::Status::NON_EMPTY || mesh_status == MeshCache::Status::UNKNOWN && "Invalid mesh status.");
 
-                switch (m_mesh_loaded[current])
+                if (mesh_status == MeshCache::Status::NON_EMPTY)
                 {
-                    case Status::UNLOADED:
-                    {
-                        new_stuff_found = true;
-                        // load mesh
-                        if (getMeshStatus(current) == MeshCache::Status::UNKNOWN)
-                        {
-                            Command *command = m_commands.initPush();
-                            if (command == nullptr)
-                            {
-                                // command buffer stall
-                                buffer_stall = true;
-                                goto BREAK_LOOP; // because of stupid switch
-                            }
-
-                            const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
-                            const auto to_block = from_block + MESH_SIZES;
-                            // TODO: paralelize next two lines?
-                            loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
-                            const auto mesh = generateMesh(from_block, to_block);
-
-                            if (mesh.size() > 0)
-                            {
-                                command->type = Command::Type::UPLOAD;
-                                command->index = current_index;
-                                command->position = current;
-                                command->mesh = mesh;
-                                m_commands.commitPush();
-                            }
-                            else
-                            {
-                                m_commands.discardPush();
-                            }
-                            // save even if mesh.size() == 0
-                            saveMeshToMeshCache(current, mesh);
-
-                            m_loaded_meshes.push_back({ current, mesh.size() == 0 });
-                        }
-                        else if (getMeshStatus(current) == MeshCache::Status::NON_EMPTY)
-                        {
-                            Command *command = m_commands.initPush();
-                            if (command == nullptr)
-                            {
-                                // command buffer stall
-                                buffer_stall = true;
-                                goto BREAK_LOOP; // because of stupid switch
-                            }
-
-                            const auto from_block = current * MESH_SIZES + MESH_OFFSETS;
-                            //const auto to_block = from_block + MESH_SIZES;
-                            // TODO: paralelize next line?
-                            const auto mesh = loadMesh(current);
-
-                            assert(mesh.size() != 0 && "Loaded empty mesh?");
-                            if (mesh.size() > 0)
-                            {
-                                command->type = Command::Type::UPLOAD;
-                                command->index = current_index;
-                                command->position = current;
-                                command->mesh = mesh;
-                                m_commands.commitPush();
-                            }
-                            else
-                            {
-                                m_commands.discardPush();
-                            }
-
-                            m_loaded_meshes.push_back({ current, mesh.size() == 0 });
-                        }
-                        else if (getMeshStatus(current) == MeshCache::Status::EMPTY)
-                        {
-                            m_loaded_meshes.push_back({ current, true });
-                        }
-                        else
-                        {
-                            assert(0 && "Invalid state.");
-                        }
-
-                        // update mesh state
-                        m_mesh_loaded[current] = Status::LOADED;
-                    }
-                    break;
-                    case Status::LOADED:
-                    {
-                        // NO_OP
-                    }
-                    break;
-                    default:
-                    {
-                        assert(0 && "Invalid state.");
-                    }
+                    mesh = loadMesh(current_mesh_position);
+                    assert(mesh.size() != 0 && "Loaded empty mesh?");
                 }
+                else if (mesh_status == MeshCache::Status::UNKNOWN)
+                {
+                    const auto from_block = current_mesh_position * MESH_SIZES + MESH_OFFSETS;
+                    const auto to_block = from_block + MESH_SIZES;
+
+                    mesh = generateMesh(from_block, to_block);
+                    saveMeshToMeshCache(current_mesh_position, mesh);
+                }
+
+                if (mesh.size() > 0)
+                {
+                    command->type = Command::Type::UPLOAD;
+                    command->index = positionToIndex(current_mesh_position, MESH_CONTAINER_SIZES);
+                    command->position = current_mesh_position;
+                    command->mesh = mesh;
+                    m_commands.commitPush();
+                }
+                else
+                {
+                    m_commands.discardPush();
+                }
+
+                // update mesh state
+                m_mesh_loaded[current_mesh_position] = Status::LOADED;
+                m_loaded_meshes.push_back({current_mesh_position, mesh.size() == 0});
             }
-BREAK_LOOP: (void)0;
-
         }
 
         if (buffer_stall)
         {
-            Debug::print("Break because buffer stall.");
-            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
+            Debug::print("Buffer stall. Loader sleeping for ", STALL_SLEEP_MS, "ms.");
+            std::this_thread::sleep_for(std::chrono::milliseconds(STALL_SLEEP_MS));
         }
-
-        if (!new_stuff_found) // this doubles as sleep if buffer stall (not sure)
+        else
         {
-            // TODO: replace sleep by conditional variable that is signaled when m_moved_center_mesh is set to true
-            Debug::print("All loaded. Loader sleeping for ", SLEEP_MS, "ms.");
-            std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
+            while (!m_moved_center_mesh && !m_quit)
+            {
+                Debug::print("Loader sleeping for ", SLEEP_MS, "ms.");
+                std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_MS));
+            }
         }
     }
 

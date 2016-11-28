@@ -104,7 +104,8 @@ private:
     static constexpr int CHUNK_DATA_SIZE{ sizeof(Block) * CHUNK_SIZE };
 
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
-    static constexpr int SLEEP_MS{ 100 };
+    static constexpr int SLEEP_MS{ 300 };
+    static constexpr int STALL_SLEEP_MS{ 50 };
     static constexpr int MAX_COMMANDS_PER_FRAME{ 16 }; // TODO: dynamic based on time left
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
@@ -167,8 +168,6 @@ private:
 
     //==============================================================================
     // functions
-
-    void meshLoader(); // TODO: refactor
     static bool meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset); // TODO: refactor
 
     // renderer functions
@@ -189,6 +188,8 @@ private:
     void loadRegion(const iVec3 region_position);
     void saveChunkToRegion(const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
+    bool removeOutOfRangeMeshes(const iVec3 center_mesh); // returns false if buffer is full and operation was not completed
+    void meshLoader();
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
     void emptyChunk(const iVec3 from_block, const iVec3 to_block);
