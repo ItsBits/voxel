@@ -328,13 +328,13 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
     const auto & chunk_region = m_regions[region_position];
 
-    // load region of new chunk
-    if (!all(chunk_region.position == region_position))
-        loadRegion(region_position);
-
     // save previous chunk
     if (chunk_status.needs_save)
         saveChunkToRegion(chunk_status.position);
+
+    // load region of new chunk
+    if (!all(chunk_region.position == region_position))
+        loadRegion(region_position);
 
     auto & chunk_meta = chunk_region.metas[chunk_position];
 

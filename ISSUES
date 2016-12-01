@@ -8,6 +8,15 @@ Issues:
     chunk loader sometimes sleeps even if there is work to do
 
 Verify if solved:
+* verify if loadChunkToChunkContainer order of operations is now correct:
+    // save previous chunk
+    if (chunk_status.needs_save)
+        saveChunkToRegion(chunk_status.position);
+
+    // load region of new chunk
+    if (!all(chunk_region.position == region_position))
+        loadRegion(region_position);
+
 
 Solved:
 * sometimes it appears that there is a deadlock when exiting loader thread
