@@ -27,6 +27,7 @@ set(SOURCE_FILES
         src/SparseMap.hpp
         src/SphereIterator.hpp
         src/ModTable.hpp
+        ../gl3w/gl3w/build/src/gl3w.c
         )
 
 add_executable(voxel ${SOURCE_FILES})
@@ -49,8 +50,9 @@ include_directories( ${ZLIB_INCLUDE_DIRS} )
 target_link_libraries( voxel ${ZLIB_LIBRARIES} )
 
 # gl3w
-link_directories(/usr/local/lib)
-target_link_libraries (voxel gl3w)
+#link_directories(/usr/local/lib)
+#target_link_libraries (voxel gl3w)
+include_directories(../gl3w/gl3w/build/include)
 
 # dl needed by gl3w ( must be included after gl3w ? )
 target_link_libraries(voxel ${CMAKE_DL_LIBS})

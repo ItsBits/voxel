@@ -4,6 +4,7 @@
 #include <string>
 #include <sstream>
 #include <glm/mat4x4.hpp>
+#include <glm/glm.hpp>
 
 template<typename T, int S>
 std::string toString(Vec<T, S> vector)
