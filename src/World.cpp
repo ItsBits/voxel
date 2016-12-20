@@ -720,12 +720,15 @@ void World::meshLoader()
 
         if (!buffer_stall)
         {
-            for (const auto &iterator : m_iterator.m_points)
+            for (const auto & iterator : m_iterator.m_points)
             {
                 if (m_moved_center_mesh || m_quit)
                     break;
 
-                const auto current_mesh_position = iterator + center_mesh;
+                if (iterator.task != decltype(m_iterator)::Task::LOAD_MESH)
+                  continue;
+
+                const auto current_mesh_position = iterator.position + center_mesh;
 
                 assert(inRange(center_mesh, current_mesh_position, SQUARE_RENDER_DISTANCE) &&
                        "Iterator constructor should make sure this does not happen.");
