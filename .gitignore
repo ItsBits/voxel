@@ -1,5 +1,6 @@
 .idea/
 world/
 mesh_cache/
+iterator/
 cmake-build-debug/
 cmake-build-release/

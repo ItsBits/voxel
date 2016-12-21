@@ -6,6 +6,7 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 
 
 #include "TinyAlgebra.hpp"
@@ -43,6 +44,18 @@ private:
 template<int RADIUS>
 SphereIterator<RADIUS>::SphereIterator()
 {
+  std::ifstream input_file{ "iterator/" + std::to_string(RADIUS), std::ifstream::ate | std::ofstream::binary  };
+  if (input_file.good())
+  {
+    auto size = input_file.tellg();
+
+    m_points.resize(size / sizeof(m_points[0]));
+
+    input_file.seekg(0);
+    input_file.read(reinterpret_cast<char *>(m_points.data()), size * sizeof(m_points[0]));
+    return;
+  }
+
   std::vector<Node> nodes;
   std::vector<int32_t> levels;
 
@@ -84,7 +97,7 @@ SphereIterator<RADIUS>::SphereIterator()
   // sync at the end
   m_points_tmp.push_back({ { 0, 0, 0 }, Task::SYNC });
 
-  for (const auto & i : m_points_tmp)
+  /*for (const auto & i : m_points_tmp)
   {
     std::cout << std::setw(10)
         << std::setw(4) << i.position(0)
@@ -100,7 +113,7 @@ SphereIterator<RADIUS>::SphereIterator()
     std::cout << std::setw(10)
               << i
               << std::endl;
-  }
+  }*/
 
   // TODO: iterator for chunk loading => get current mesh ring and add all chunks that are needed minus all chunks that have already been loaded
   //         -> this is just for chunk generation. aka. making sure that all chunks are generated before generating meshess -> reading chunks can be done without locking
@@ -171,7 +184,7 @@ SphereIterator<RADIUS>::SphereIterator()
     }
   }
 
-  for (const auto & i : m_chunk_generation_list)
+  /*for (const auto & i : m_chunk_generation_list)
   {
     std::cout << std::setw(10)
               << std::setw(4) << i(0)
@@ -191,7 +204,8 @@ SphereIterator<RADIUS>::SphereIterator()
               << " | " << std::setw(3) << square_distance(i.position(0), i.position(1), i.position(2))
               << " | " << static_cast<int>(i.task)
               << std::endl;
-  }
+  }*/
 
-  int dummy = 0;
+  std::ofstream output_file{ "iterator/" + std::to_string(RADIUS), std::ofstream::trunc | std::ofstream::binary  };
+  output_file.write(reinterpret_cast<const char *>(m_points.data()), m_points.size() * sizeof(m_points[0]));
 }
