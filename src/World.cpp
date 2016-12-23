@@ -451,7 +451,17 @@ std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iV
     {
     public:
         Getttter(const Block * const w) : worldd{ w } {}
-        const Block & operator () (const iVec3 block_position) { return worldd[positionToIndex(block_position, World::chunk_container_size)]; }
+        // TODO: fix this positionToIndex is not the correct function (more processing of block_position needed. See getBlock() )
+        const Block & operator () (const iVec3 block_position)
+        {
+
+            const auto block_index = positionToIndex(block_position, World::CHUNK_SIZES);
+
+            const auto chunk_position = floorDiv(block_position, World::CHUNK_SIZES);
+            const auto chunk_index = positionToIndex(chunk_position, World::chunk_container_size);
+
+            return worldd[chunk_index * World::CHUNK_SIZE + block_index];
+        }
 
     private:
         const Block * const worldd;
@@ -858,8 +868,14 @@ void World::multiThreadMeshLoader(const int thread_id)
 {
     std::unique_ptr<Block[]> container{ std::make_unique<Block[]>(CHUNK_SIZE) };
     static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
-    std::unique_ptr<iVec3[]> chunk_positions{ std::make_unique<iVec3[]>(CHUNK_SIZE * product(chunk_container_size)) }; // TODO: correct algorithm for determining needed size
-    std::unique_ptr<Block[]> chunks{ std::make_unique<Block[]>(CHUNK_SIZE * product(chunk_container_size)) }; // TODO: correct algorithm for determining needed size
+    constexpr size_t SZEE = CHUNK_SIZE * product(chunk_container_size);
+    std::unique_ptr<iVec3[]> chunk_positions{ std::make_unique<iVec3[]>(SZEE) }; // TODO: correct algorithm for determining needed size
+    std::unique_ptr<Block[]> chunks{ std::make_unique<Block[]>(SZEE) }; // TODO: correct algorithm for determining needed size
+
+    // initialize this stuff
+    for (std::size_t i = 0; i < SZEE; ++i)
+        chunk_positions[i] = { 0, 0, 0 };
+    chunk_positions[0] = { 1, 0, 0 };
 
     const iVec3 center_mesh = iVec3{ 0, 0, 0 }; // dummys
     const iVec3 center_chunk = iVec3{ 0, 0, 0 }; // dummys
@@ -910,8 +926,33 @@ void World::multiThreadMeshLoader(const int thread_id)
             case decltype(m_iterator)::Task::GENERATE_MESH:
             {
                 // TODO: implement multi threaded command queue
-                const auto mesh = generateMeshNew(task.position + center_mesh, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
-                // TODO: pass mesh do renderer
+
+                auto * command = m_commands.initPush();
+
+                // buffer is full
+                while (command == nullptr)
+                {
+                    std::cout << "Buffer stall. Sleeping" << std::endl;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    command = m_commands.initPush();
+                }
+
+                const auto current_mesh_position = task.position + center_mesh;
+                const auto mesh = generateMeshNew(current_mesh_position, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
+
+                if (mesh.size() == 0)
+                {
+                    m_commands.discardPush();
+                }
+                else
+                {
+                    command->type = Command::Type::UPLOAD;
+                    command->index = positionToIndex(current_mesh_position, MESH_CONTAINER_SIZES);
+                    command->position = current_mesh_position;
+                    command->mesh = mesh;
+
+                    m_commands.commitPush();
+                }
             }
             break;
             case decltype(m_iterator)::Task::END_MARKER:
@@ -920,6 +961,9 @@ void World::multiThreadMeshLoader(const int thread_id)
 
                 m_iterator_index = 0;
                 m_barrier.wait();
+                // return is temporary and is here to prevent errors (only works if only 1 thread is running)
+                return; // TODO: remove that that's temporary because checking if chunk is already loaded is not implmented yet and because REMOVE commant to renderer is also not implemented yet
+
             }
             break;
             default:
@@ -1146,8 +1190,10 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     for (const auto & m : m_meshes)
     {
         // only render if not too far away
+#if 0
         if (!inRange(center_mesh, m.data.position, SQUARE_RENDER_DISTANCE))
             continue;
+#endif
 
         // only render if in frustum
         if (!meshInFrustum(frustum_planes, m.data.position * MESH_SIZES + MESH_OFFSETS))

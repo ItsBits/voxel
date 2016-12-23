@@ -144,8 +144,13 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
   // TODO: save result to file and reuse because the algorithm is O(n^2) and takes forever
   // TODO: verify correctness
     // TODO: try only doing positive octant (all other positions are mirrored (+++)(++-)(+-+)(+--)(-++)(-+-)(--+)(---)
+    size_t re = m_points_tmp.size();
+    const size_t one_percent = re / 100;
   for (const auto & i : m_points_tmp)
   {
+      if (--re % one_percent == 0)
+        std::cout << re << std::endl;
+
     if (i.task == Task::SYNC)
     {
       m_chunk_generation_list.push_back(i.position + iVec3{1337, 1337, 1337}); // TODO: dummy please replace by SYNC
