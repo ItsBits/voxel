@@ -20,7 +20,7 @@ class SphereIterator
 public:
     SphereIterator();
 
-    enum class Task : int { SYNC = 0, LAST_SYNC_AND_LOAD_REGION = 1, GENERATE_CHUNK = 2, GENERATE_MESH = 3 };
+    enum class Task : int { SYNC = 0, LAST_SYNC_AND_LOAD_REGION = 1, GENERATE_CHUNK = 2, GENERATE_MESH = 3, END_MARKER = 4 };
     struct Job { iVec3 position; Task task; };
     std::vector<Job> m_points;
     std::vector<Job> m_points_tmp;
@@ -102,7 +102,7 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
     m_points_tmp.push_back({ { i.x, i.y, i.z }, Task::GENERATE_MESH });
   }
   // sync at the end
-    m_points_tmp.push_back({ { 0, 0, 0 }, Task::SYNC });
+    m_points_tmp.push_back({ { 0, 0, 0 }, Task::SYNC }); // why is this actually missing in the end product?
     // sync at the beginning
     m_points_tmp . insert ( m_points_tmp . begin ( ) , { { 0 , 0 , 0 }, Task :: SYNC } );
 
@@ -275,6 +275,10 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
             assert(false && "Invalid command.");
         }
     }
+
+    for (int32_t x = 0; x < SYNC_REPETITIONS - 1; ++x)
+        m_points.push_back({ iVec3{ 0, 0, 0 }, Task::SYNC });
+    m_points.push_back({ iVec3{ 0, 0, 0 }, Task::END_MARKER });
 
     std::cout << "Final points: ---------------------------------" << std::endl;
 

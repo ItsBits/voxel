@@ -24,6 +24,7 @@ constexpr unsigned char World::SHADDOW_STRENGTH;
 constexpr iVec3 World::MESH_CONTAINER_SIZES;
 constexpr iVec3 World::MESH_SIZES;
 constexpr iVec3 World::MESH_OFFSETS;
+constexpr iVec3 World::chunk_container_size;
 constexpr int World::SLEEP_MS;
 constexpr int World::STALL_SLEEP_MS;
 
@@ -205,12 +206,6 @@ World::MeshCache::Status World::getMeshStatus(const iVec3 mesh_position)
 }
 
 //==============================================================================
-void World::loadRegionNew(const iVec3 region_position)
-{
-    // TODO: inplement
-}
-
-//==============================================================================
 void World::loadRegion(const iVec3 region_position)
 {
     auto & region = m_regions[region_position];
@@ -327,49 +322,32 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
 }
 
 //==============================================================================
-void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, const Block * const chunks)
+void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * const chunk, iVec3 * const chunk_container_meta)
 {
-    return;
-
-    auto & chunk_status = m_chunk_statuses[chunk_position];
-
     // if already loaded
-    if (all(chunk_status.position == chunk_position))
+    if (all(*chunk_container_meta == chunk_position))
         return;
 
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
-    const auto & chunk_region = m_regions[region_position];
-
-    // save previous chunk
-    if (chunk_status.needs_save)
-        saveChunkToRegion(chunk_status.position);
-
-    // load region of new chunk
-    if (!all(chunk_region.position == region_position))
-        loadRegion(region_position);
+    auto & chunk_region = m_regions[region_position];
+    assert(all(chunk_region.position == region_position) && "Assuming that correct region is already loaded.");
 
     auto & chunk_meta = chunk_region.metas[chunk_position];
 
-    // update mesh status
-    chunk_status.position = chunk_position;
-    chunk_status.needs_save = false;
+    // update mesh status // TODO: do this when sure that chunk is present and can be loaded
+    *chunk_container_meta = chunk_position;
 
-    // generate new chunk
-    if (chunk_meta.size == 0)
+    // chunk must exist
+    assert(chunk_meta.size != 0 && "Want to load nonexisting chunk.");
+
+    // load chunk from region
+
     {
-        const auto from_block = chunk_position * CHUNK_SIZES;
-        generateChunk(from_block, from_block + CHUNK_SIZES, WorldType::SINE);
+        // TODO: no need for locking if everything is correctly implemented (aka. realloc is removed)
+        // std::unique_lock<std::mutex>{ chunk_region.write_lock };
 
-        chunk_status.needs_save = true;
-
-        // immediately save chunk to region
-        saveChunkToRegion(chunk_position);
-    }
-        // load chunk from region
-    else
-    {
         // address of first block
-        auto * beginning_of_chunk = &getBlock(chunk_position * CHUNK_SIZES);
+        auto * beginning_of_chunk = chunk;
 
         // load chunk from region
         uLongf destination_length = static_cast<uLongf>(CHUNK_DATA_SIZE);
@@ -443,9 +421,9 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
 }
 
 //==============================================================================
-std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, const iVec3 chunk_container_size, const Block * const chunks)
+std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iVec3 chunk_container_size,*/ Block * const chunks, iVec3 * const chunk_metas)
 {
-    const auto from_block = mesh_position * CHUNK_SIZES;
+    const auto from_block = mesh_position * CHUNK_SIZES + MESH_OFFSETS;
     const auto to_block = from_block + CHUNK_SIZES;
 
     // copy-paste from load chunk range
@@ -462,13 +440,24 @@ std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, const iVec
             for (position(0) = chunk_position_from(0); position(0) <= chunk_position_to(0); ++position(0))
             {
                 //loadChunkToChunkContainer(position);
-                const auto * this_chunk = chunks + (toIndex(position, chunk_container_size) * CHUNK_SIZE);
-                // TODO: implement
-                loadChunkToChunkContainerNew(position, this_chunk);
+                const auto index = positionToIndex(position, chunk_container_size) * CHUNK_SIZE;
+                auto * this_chunk = chunks + index;
+                auto * this_chunk_meta = chunk_metas + index;
+
+                loadChunkToChunkContainerNew(position, this_chunk, this_chunk_meta);
             }
 
-                // TODO: getter from local chunk storage (const Block * const chunks)
-    return generateMesh(from_block, to_block, BlockGetter{this}/*BlockGetter{ this }*/);
+    class Getttter
+    {
+    public:
+        Getttter(const Block * const w) : worldd{ w } {}
+        const Block & operator () (const iVec3 block_position) { return worldd[positionToIndex(block_position, World::chunk_container_size)]; }
+
+    private:
+        const Block * const worldd;
+
+    };
+    return generateMesh(from_block, to_block, Getttter{ chunks });
 
     // TODO: for debug: zero out (or magic number) const Block * const chunks after using
 }
@@ -869,9 +858,8 @@ void World::multiThreadMeshLoader(const int thread_id)
 {
     std::unique_ptr<Block[]> container{ std::make_unique<Block[]>(CHUNK_SIZE) };
     static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
-    constexpr iVec3 chunk_container_size{ 2, 2, 2 };
-    std::unique_ptr<iVec3[]> chunk_positions{ std::make_unique<iVec3[]>(CHUNK_SIZE * 2) };
-    std::unique_ptr<Block[]> chunks{ std::make_unique<Block[]>(CHUNK_SIZE * 2) };
+    std::unique_ptr<iVec3[]> chunk_positions{ std::make_unique<iVec3[]>(CHUNK_SIZE * product(chunk_container_size)) }; // TODO: correct algorithm for determining needed size
+    std::unique_ptr<Block[]> chunks{ std::make_unique<Block[]>(CHUNK_SIZE * product(chunk_container_size)) }; // TODO: correct algorithm for determining needed size
 
     const iVec3 center_mesh = iVec3{ 0, 0, 0 }; // dummys
     const iVec3 center_chunk = iVec3{ 0, 0, 0 }; // dummys
@@ -881,8 +869,7 @@ void World::multiThreadMeshLoader(const int thread_id)
     {
         auto current_index = m_iterator_index.fetch_add(1);
         auto task = m_iterator.m_points[current_index];
-
-        // TODO: correct regions must be loaded for generating chunks AND meshes inside two SYNC markers
+        assert(current_index < m_iterator.m_points.size() && "Out of bounds access.");
 
         switch (task.task)
         {
@@ -905,9 +892,8 @@ void World::multiThreadMeshLoader(const int thread_id)
                 for (position(2) = from_region(2); position(2) <= to_region(2); ++position(2))
                     for (position(1) = from_region(1); position(1) <= to_region(1); ++position(1))
                         for (position(0) = from_region(0); position(0) <= to_region(0); ++position(0))
-                            loadRegionNew(position);
+                            loadRegion(position);
 
-                m_iterator_index = 0;
                 m_barrier.wait();
             }
             break;
@@ -923,8 +909,17 @@ void World::multiThreadMeshLoader(const int thread_id)
             break;
             case decltype(m_iterator)::Task::GENERATE_MESH:
             {
-                // implement multi threaded command queue
-                const auto mesh = generateMeshNew(task.position + center_mesh, chunk_container_size, chunks.get());
+                // TODO: implement multi threaded command queue
+                const auto mesh = generateMeshNew(task.position + center_mesh, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
+                // TODO: pass mesh do renderer
+            }
+            break;
+            case decltype(m_iterator)::Task::END_MARKER:
+            {
+                assert (current_index == m_iterator.m_points.size() - 1 && "End marker should only appear at the end of the hardcoded iterator.");
+
+                m_iterator_index = 0;
+                m_barrier.wait();
             }
             break;
             default:

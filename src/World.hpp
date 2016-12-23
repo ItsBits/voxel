@@ -61,7 +61,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 5 },
+            RDISTANCE{ 3 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -115,7 +115,7 @@ private:
     static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
     static constexpr int REGION_DATA_SIZE_FACTOR{ CHUNK_DATA_SIZE * 128 };
 
-    static constexpr int THREAD_COUNT{ 4 };
+    static constexpr int THREAD_COUNT{ 1 }; // locking issues. multi threads are not working, because of reallocating region data?
     //==============================================================================
     // variables
 
@@ -183,13 +183,13 @@ private:
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
     void loadChunkToChunkContainer(const iVec3 chunk_position);
-    void loadChunkToChunkContainerNew(const iVec3 chunk_position, const Block * const chunks);
+    void loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * const chunks, iVec3 * const chunk_meta);
     void saveRegionToDrive(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
     template<typename GetBlock>
     std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block, GetBlock blockGet);
-    std::vector<Vertex> generateMeshNew(const iVec3 mesh_position, const iVec3 chunk_container_size, const Block * const chunks);
+    std::vector<Vertex> generateMeshNew(const iVec3 mesh_position, /*const iVec3 chunk_container_size,*/ Block * const chunks, iVec3 * const chunk_metas);
     std::vector<Vertex> generateMeshOld(const iVec3 from_block, const iVec3 to_block);
     class BlockGetter // this is temporary, to reduce boilerplate (duplicating generateMesh)
     {
@@ -206,12 +206,15 @@ private:
     Block & getBlock(const iVec3 block_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
     void loadRegion(const iVec3 region_position);
-    void loadRegionNew(const iVec3 region_position);
     void saveChunkToRegion(const iVec3 chunk_position);
     void saveChunkToRegionNew(const Block * const source, const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
     bool removeOutOfRangeMeshes(const iVec3 center_mesh); // returns false if buffer is full and operation was not completed
     void meshLoader();
+public:
+    static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
+    static constexpr iVec3 chunk_container_size{ 2, 2, 2 };
+private:
     void multiThreadMeshLoader(const int thread_id);
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
