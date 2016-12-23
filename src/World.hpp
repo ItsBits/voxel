@@ -17,6 +17,7 @@
 #include <stack>
 #include <queue>
 #include "ModTable.hpp"
+#include "ThreadBarrier.hpp"
 
 // TODO: abstract and reuse repetitive data structures like m_mesh_caches and m_regions
 
@@ -60,7 +61,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 14 },
+            RDISTANCE{ 5 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -114,6 +115,7 @@ private:
     static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
     static constexpr int REGION_DATA_SIZE_FACTOR{ CHUNK_DATA_SIZE * 128 };
 
+    static constexpr int THREAD_COUNT{ 4 };
     //==============================================================================
     // variables
 
@@ -127,7 +129,10 @@ private:
     // TODO: more space efficient format than current (3 states only needed)
     ModTable<Status, int, MESH_CONTAINER_SIZES(0), MESH_CONTAINER_SIZES(1), MESH_CONTAINER_SIZES(2)> m_mesh_loaded;
 
-    SphereIterator<RDISTANCE> m_iterator;
+    std::thread m_workers[THREAD_COUNT];
+    SphereIterator<RDISTANCE, THREAD_COUNT> m_iterator;
+    std::atomic_int m_iterator_index{ 0 };
+    ThreadBarrier m_barrier{ THREAD_COUNT };
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
@@ -137,6 +142,7 @@ private:
         ModTable<ChunkMeta, int, CHUNK_REGION_SIZES(0), CHUNK_REGION_SIZES(1), CHUNK_REGION_SIZES(2)> metas;
         Bytef * data; // TODO: replace pointer with RAII mechanism
         int size, container_size;
+        std::mutex write_lock;
         bool needs_save;
     };
     ModTable<Region, int, CHUNK_REGION_CONTAINER_SIZES(0), CHUNK_REGION_CONTAINER_SIZES(1), CHUNK_REGION_CONTAINER_SIZES(2)> m_regions;
@@ -177,22 +183,41 @@ private:
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
     void loadChunkToChunkContainer(const iVec3 chunk_position);
+    void loadChunkToChunkContainerNew(const iVec3 chunk_position, const Block * const chunks);
     void saveRegionToDrive(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
-    std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
+    template<typename GetBlock>
+    std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block, GetBlock blockGet);
+    std::vector<Vertex> generateMeshNew(const iVec3 mesh_position, const iVec3 chunk_container_size, const Block * const chunks);
+    std::vector<Vertex> generateMeshOld(const iVec3 from_block, const iVec3 to_block);
+    class BlockGetter // this is temporary, to reduce boilerplate (duplicating generateMesh)
+    {
+    public:
+        BlockGetter(World * w) : world{ w } {}
+        Block & operator () (const iVec3 block_position) { return world->getBlock(block_position); }
+    private:
+        World * world;
+    };
+
     void generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
+    void generateChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
     MeshCache::Status getMeshStatus(const iVec3 mesh_position);
     Block & getBlock(const iVec3 block_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
     void loadRegion(const iVec3 region_position);
+    void loadRegionNew(const iVec3 region_position);
     void saveChunkToRegion(const iVec3 chunk_position);
+    void saveChunkToRegionNew(const Block * const source, const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
     bool removeOutOfRangeMeshes(const iVec3 center_mesh); // returns false if buffer is full and operation was not completed
     void meshLoader();
+    void multiThreadMeshLoader(const int thread_id);
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
     void emptyChunk(const iVec3 from_block, const iVec3 to_block);
+    void sineChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
+    void emptyChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
     void smallBlockChunk(const iVec3 from_block, const iVec3 to_block);
     void floorTilesChunk(const iVec3 from_block, const iVec3 to_block);
 
