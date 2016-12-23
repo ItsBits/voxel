@@ -1,3 +1,5 @@
+* rename to: OverengineeredVoxelEngine :P
+
 * multi threaded loader for loading new meshes
   use a separate thread for updating existing loaded meshes
 * replace the remove upload render with a task queue (or maybe 1 task queue per thread)

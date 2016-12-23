@@ -28,7 +28,7 @@ set(SOURCE_FILES
         src/SphereIterator.hpp
         src/ModTable.hpp
         ../gl3w/gl3w/build/src/gl3w.c
-        src/ThreadBarrier.hpp)
+        src/ThreadBarrier.hpp src/MemoryBlockUnit.hpp src/MemoryBlock.hpp)
 
 add_executable(voxel ${SOURCE_FILES})
 

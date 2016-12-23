@@ -926,6 +926,7 @@ void World::multiThreadMeshLoader(const int thread_id)
             case decltype(m_iterator)::Task::GENERATE_MESH:
             {
                 // TODO: implement multi threaded command queue
+                // TODO: thread safe regions with "MemoryBlocks" ?
 
                 auto * command = m_commands.initPush();
 

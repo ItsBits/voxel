@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MemoryBlock.hpp"
 #include "RingBufferSingleProducerSingleConsumer.hpp"
 #include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
@@ -8,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <GL/gl3w.h>
+
 // TODO: checkout other compression libraries that are faster
 #include <zlib.h>
 #include <thread>
@@ -18,8 +20,6 @@
 #include <queue>
 #include "ModTable.hpp"
 #include "ThreadBarrier.hpp"
-
-// TODO: abstract and reuse repetitive data structures like m_mesh_caches and m_regions
 
 // TODO: expand
 // TODO: char instead of int position and type
@@ -116,6 +116,12 @@ private:
     static constexpr int REGION_DATA_SIZE_FACTOR{ CHUNK_DATA_SIZE * 128 };
 
     static constexpr int THREAD_COUNT{ 1 }; // locking issues. multi threads are not working, because of reallocating region data?
+
+public:
+    static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
+    static constexpr iVec3 chunk_container_size{ 2, 2, 2 };
+private:
+
     //==============================================================================
     // variables
 
@@ -211,10 +217,6 @@ private:
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
     bool removeOutOfRangeMeshes(const iVec3 center_mesh); // returns false if buffer is full and operation was not completed
     void meshLoader();
-public:
-    static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
-    static constexpr iVec3 chunk_container_size{ 2, 2, 2 };
-private:
     void multiThreadMeshLoader(const int thread_id);
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
