@@ -43,7 +43,6 @@ public:
         m_next = next;
     }
 
-    // TODO: figure out why I got a segfault here when exiting ( ~Region() )
     auto getNext() { return m_next; }
 
 private:

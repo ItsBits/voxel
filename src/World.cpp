@@ -1033,13 +1033,20 @@ void World::multiThreadMeshLoader(const int thread_id)
                 const iVec3 from{ chunk_position * CHUNK_SIZES };
                 const iVec3 to{ from + CHUNK_SIZES };
 
-                generateChunkNew(container.get(), from, to, WorldType::SINE);
-                saveChunkToRegionNew(container.get(), chunk_position);
+                const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+                const auto & chunk_region = m_regions[region_position];
+                const auto & chunk_meta = chunk_region.metas[chunk_position];
+
+                if (chunk_meta.loc == CType::NOWHERE)
+                {
+                    generateChunkNew(container.get(), from, to, WorldType::SINE);
+                    saveChunkToRegionNew(container.get(), chunk_position);
+                }
             }
             break;
             case decltype(m_iterator)::Task::GENERATE_MESH:
             {
-
+                // TODO: at least remember if mesh is empty, so that chunks won't need to de loaded if empty
                 const auto current_mesh_position = task.position + center_mesh;
                 const auto mesh = generateMeshNew(current_mesh_position, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
 
@@ -1523,8 +1530,9 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
                 {
                     assert(chunk_meta.size != 0 && chunk_meta.location != nullptr && chunk_meta.offset_n == 0 && "Data structure is broken.");
                     total_size_of_chunks_in_memory += chunk_meta.size;
-                    const auto * test = &chunk_meta;
-                    to_save.push_back(&chunk_meta);
+                    //const auto * test = &chunk_meta;
+                    to_save.push_back(&(region.metas[position])); // pointer to referenced object ?
+                    //to_save.push_back(&chunk_meta);
                     chunk_meta.loc = CType::FILE;
                 }
             }
@@ -1546,6 +1554,7 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
         Bytef * destination = region.data + region.size;
         chunk_meta->offset_n = region.size;
         region.size += chunk_meta->size;
+        std::memcpy(destination, chunk_meta->location, chunk_meta->size);
         chunk_meta->location = nullptr; // don't worry the memory will be recycled automatically
         chunk_meta->loc = CType::FILE;
     }

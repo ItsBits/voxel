@@ -61,7 +61,7 @@ public:
 
         while (current != nullptr)
         {
-            auto * tmp = m_first->getNext();
+            auto * tmp = current->getNext();
             delete current;
             current = tmp;
         }
