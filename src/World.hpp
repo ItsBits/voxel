@@ -123,7 +123,7 @@ private:
     static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
     static constexpr int REGION_DATA_SIZE_FACTOR{ CHUNK_DATA_SIZE * 128 };
 
-    static constexpr int THREAD_COUNT{ 1 }; // locking issues. multi threads are not working, because of reallocating region data?
+    static constexpr int THREAD_COUNT{ 3 }; // locking issues. multi threads are not working, because of reallocating region data?
 
 public:
     static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
@@ -147,6 +147,7 @@ private:
     SphereIterator<RDISTANCE, THREAD_COUNT> m_iterator;
     std::atomic_int m_iterator_index{ 0 };
     ThreadBarrier m_barrier{ THREAD_COUNT };
+    std::mutex m_ring_buffer_lock; // TODO: my idea was to create a lock free system, but this might be okay
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes

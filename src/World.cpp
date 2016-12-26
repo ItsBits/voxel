@@ -1039,28 +1039,24 @@ void World::multiThreadMeshLoader(const int thread_id)
             break;
             case decltype(m_iterator)::Task::GENERATE_MESH:
             {
-                // TODO: implement multi threaded command queue
-                // TODO: thread safe regions with "MemoryBlocks" ?
-
-                auto * command = m_commands.initPush();
-
-                // buffer is full
-                while (command == nullptr)
-                {
-                    std::cout << "Buffer stall. Sleeping" << std::endl;
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                    command = m_commands.initPush();
-                }
 
                 const auto current_mesh_position = task.position + center_mesh;
                 const auto mesh = generateMeshNew(current_mesh_position, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
 
-                if (mesh.size() == 0)
+                if (mesh.size() != 0)
                 {
-                    m_commands.discardPush();
-                }
-                else
-                {
+                    std::unique_lock<std::mutex> lock { m_ring_buffer_lock };
+
+                    auto * command = m_commands.initPush();
+
+                    // buffer is full
+                    while (command == nullptr)
+                    {
+                        std::cout << "Buffer stall. Sleeping" << std::endl;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        command = m_commands.initPush();
+                    }
+
                     command->type = Command::Type::UPLOAD;
                     command->index = positionToIndex(current_mesh_position, MESH_CONTAINER_SIZES);
                     command->position = current_mesh_position;
@@ -1399,7 +1395,8 @@ void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_p
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
     auto & region = m_regions[region_position];
 
-    std::unique_lock<std::mutex> lock{ region.write_lock };
+    std::unique_lock<std::mutex> lock{ region.write_lock }; // TODO: figure something out. this lock is serializing too much. compress2() is probably taking a lot of time
+
 
     // check if region was changed during locking. Assuming,  that it will not be changed, while this function is executing (and also shouldn't if everything is implemented correctly)
     assert(all(region.position == region_position) && "Incorrect region loaded.");
