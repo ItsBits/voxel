@@ -47,7 +47,18 @@ World::World() :
     for (auto & i : m_regions)
     {
         i.position = { 0, 0, 0 };
+#ifndef NEW_REGION_FORMAT
         for (auto & i2 : i.metas) i2 = { 0, 0 };
+#else
+        for (auto & i2 : i.metas)
+        {
+            // i2 = { 0, CType::NOWHERE, 0 };
+            i2.location = nullptr;
+            i2.size = 0;
+            i2.loc = CType::NOWHERE;
+            i2.offset_n = 0;
+        }
+#endif
         i.data = nullptr;
         i.size = 0;
         i.container_size = 0;
@@ -85,8 +96,13 @@ World::~World()
     // check all chunks if they need to be saved and save them
     for (auto & chunk_status : m_chunk_statuses)
         if (chunk_status.needs_save) // TODO: check if this is this optional because saveChunkToRegions checks it?
-            saveChunkToRegion(chunk_status.position);
-
+#ifndef NEW_REGION_FORMAT
+            saveChunkToRegionOld(chunk_status.position);
+#else
+            // TODO: implement !!!!!!!!!
+            //saveChunkToRegionNew(chunk_status.position);
+            (void)0;
+#endif
     // TODO: refactor
     // save all valid regions
     bool first_deelete_that = true;
@@ -99,12 +115,20 @@ World::~World()
             if (all(region.position == iVec3{ 1, 0, 0 }))
                 continue;
             else
-                saveRegionToDrive(region.position);
+#ifdef NEW_REGION_FORMAT
+                saveRegionToDriveNew(region.position);
+#else
+                saveRegionToDriveOld(region.position);
+#endif
         }
         else
         {
             if (!all(region.position == iVec3{ 0, 0, 0 }))
-                saveRegionToDrive(region.position);
+#ifdef NEW_REGION_FORMAT
+                saveRegionToDriveNew(region.position);
+#else
+                saveRegionToDriveOld(region.position);
+#endif
         }
     }
 
@@ -189,7 +213,7 @@ void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
     for (position(2) = chunk_position_from(2); position(2) <= chunk_position_to(2); ++position(2))
         for (position(1) = chunk_position_from(1); position(1) <= chunk_position_to(1); ++position(1))
             for (position(0) = chunk_position_from(0); position(0) <= chunk_position_to(0); ++position(0))
-                loadChunkToChunkContainer(position);
+                loadChunkToChunkContainerOld(position);
 }
 
 //==============================================================================
@@ -206,7 +230,7 @@ World::MeshCache::Status World::getMeshStatus(const iVec3 mesh_position)
 }
 
 //==============================================================================
-void World::loadRegion(const iVec3 region_position)
+void World::loadRegionNew(const iVec3 region_position)
 {
     auto & region = m_regions[region_position];
 
@@ -215,7 +239,66 @@ void World::loadRegion(const iVec3 region_position)
         return;
 
     if (region.needs_save)
-        saveRegionToDrive(region.position);
+        saveRegionToDriveNew(region.position);
+
+    const std::string file_name = WORLD_ROOT + toString(region_position);
+    std::ifstream file{ file_name, std::ifstream::binary };
+
+    if (file.good())
+    {
+        Debug::print("Loading region ", toString(region_position));
+
+        // get rid of old data
+        std::free(region.data);
+        region.data_memory.reset();
+
+        region.position = region_position;
+
+        file.read(reinterpret_cast<char *>(&region.size), sizeof(region.size));
+        file.read(reinterpret_cast<char *>(region.metas.begin()), sizeof(region.metas));
+
+        if (region.size > 0)
+        {
+            region.data = (Bytef *) std::malloc(static_cast<std::size_t>(region.size));
+            file.read(reinterpret_cast<char *>(region.data), region.size);
+        }
+        else
+        {
+            region.data = nullptr;
+        }
+
+        region.container_size = region.size;
+
+        if (!file.good()) std::runtime_error("Reading file failed.");
+    }
+    else
+    {
+        // get rid of old data
+        std::free(region.data);
+        region.data_memory.reset();
+
+        // create region file
+        region.position = region_position;
+        region.size = 0;
+        region.data = nullptr;
+        region.container_size = 0;
+        for (auto & i : region.metas) i = { 0, CType::NOWHERE, 0 };
+    }
+
+    region.needs_save = false;
+}
+
+//==============================================================================
+void World::loadRegionOld(const iVec3 region_position)
+{
+    auto & region = m_regions[region_position];
+
+    // return if already loaded
+    if (all(region_position == region.position))
+        return;
+
+    if (region.needs_save)
+        saveRegionToDriveOld(region.position);
 
     const std::string file_name = WORLD_ROOT + toString(region_position);
     std::ifstream file{ file_name, std::ifstream::binary };
@@ -256,7 +339,11 @@ void World::loadRegion(const iVec3 region_position)
         region.size = 0;
         region.data = nullptr;
         region.container_size = 0;
+#ifdef NEW_REGION_FORMAT
+        for (auto & i : region.metas) i = { 0, CType::NOWHERE, 0 };
+#else
         for (auto & i : region.metas) i = { 0, 0 };
+#endif
     }
 
     region.needs_save = false;
@@ -342,17 +429,18 @@ void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * con
 
     // load chunk from region
 
-    {
-        // TODO: no need for locking if everything is correctly implemented (aka. realloc is removed)
-        // std::unique_lock<std::mutex>{ chunk_region.write_lock };
+    // TODO: no need for locking if everything is correctly implemented (aka. realloc is removed)
+    // std::unique_lock<std::mutex>{ chunk_region.write_lock };
 
+    if (chunk_meta.loc == CType::FILE)
+    {
         // address of first block
         auto * beginning_of_chunk = chunk;
 
         // load chunk from region
         uLongf destination_length = static_cast<uLongf>(CHUNK_DATA_SIZE);
 
-        const auto * source = chunk_region.data + chunk_meta.offset;
+        const auto * source = chunk_region.data + chunk_meta.offset_n;
 
         auto result = uncompress(
             reinterpret_cast<Bytef *>(beginning_of_chunk), &destination_length,
@@ -361,10 +449,33 @@ void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * con
 
         assert(result == Z_OK && destination_length == CHUNK_DATA_SIZE && "Error in decompression.");
     }
+    else if (chunk_meta.loc == CType::MEMORY)
+    {
+        //assert(false && "to do: impelment.");
+
+        // address of first block
+        auto * beginning_of_chunk = chunk;
+
+        // load chunk from region
+        uLongf destination_length = static_cast<uLongf>(CHUNK_DATA_SIZE);
+
+        const auto * source = chunk_meta.location;
+
+        auto result = uncompress(
+            reinterpret_cast<Bytef *>(beginning_of_chunk), &destination_length,
+            source, static_cast<uLongf>(chunk_meta.size)
+        );
+
+        assert(result == Z_OK && destination_length == CHUNK_DATA_SIZE && "Error in decompression.");
+    }
+    else
+    {
+        assert(false && "Loading chunk that does not exist.");
+    }
 }
 
 //==============================================================================
-void World::loadChunkToChunkContainer(const iVec3 chunk_position)
+void World::loadChunkToChunkContainerOld(const iVec3 chunk_position)
 {
     auto & chunk_status = m_chunk_statuses[chunk_position];
 
@@ -377,11 +488,11 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
 
     // save previous chunk
     if (chunk_status.needs_save)
-        saveChunkToRegion(chunk_status.position);
+        saveChunkToRegionOld(chunk_status.position);
 
     // load region of new chunk
     if (!all(chunk_region.position == region_position))
-        loadRegion(region_position);
+        loadRegionOld(region_position);
 
     auto & chunk_meta = chunk_region.metas[chunk_position];
 
@@ -398,7 +509,7 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
         chunk_status.needs_save = true;
 
         // immediately save chunk to region
-        saveChunkToRegion(chunk_position);
+        saveChunkToRegionOld(chunk_position);
     }
     // load chunk from region
     else
@@ -409,8 +520,11 @@ void World::loadChunkToChunkContainer(const iVec3 chunk_position)
         // load chunk from region
         uLongf destination_length = static_cast<uLongf>(CHUNK_DATA_SIZE);
 
+#ifdef NEW_REGION_FORMAT
+        const auto * source = chunk_region.data + chunk_meta.offset_n;
+#else
         const auto * source = chunk_region.data + chunk_meta.offset;
-
+#endif
         auto result = uncompress(
                 reinterpret_cast<Bytef *>(beginning_of_chunk), &destination_length,
                 source, static_cast<uLongf>(chunk_meta.size)
@@ -908,7 +1022,7 @@ void World::multiThreadMeshLoader(const int thread_id)
                 for (position(2) = from_region(2); position(2) <= to_region(2); ++position(2))
                     for (position(1) = from_region(1); position(1) <= to_region(1); ++position(1))
                         for (position(0) = from_region(0); position(0) <= to_region(0); ++position(0))
-                            loadRegion(position);
+                            loadRegionNew(position);
 
                 m_barrier.wait();
             }
@@ -1287,10 +1401,12 @@ void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_p
 
     std::unique_lock<std::mutex> lock{ region.write_lock };
 
+    // check if region was changed during locking. Assuming,  that it will not be changed, while this function is executing (and also shouldn't if everything is implemented correctly)
     assert(all(region.position == region_position) && "Incorrect region loaded.");
 
     uLong destination_length = compressBound(static_cast<uLong>(CHUNK_DATA_SIZE));
 
+#ifndef NEW_REGION_FORMAT
     // resize if potentially out of space
     if (region.size + static_cast<int>(destination_length) > region.container_size)
     {
@@ -1303,6 +1419,9 @@ void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_p
     }
 
     Bytef * const destination = region.data + region.size; // TODO: figure out if this is size in char, Bytef or Block
+#else
+    Bytef * const destination = reinterpret_cast<Bytef *>(region.data_memory.getBlock(destination_length));
+#endif
 
     const auto result = compress2(destination, &destination_length, reinterpret_cast<const Bytef *>(source), static_cast<uLong>(CHUNK_DATA_SIZE), Z_BEST_SPEED);
 
@@ -1311,15 +1430,27 @@ void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_p
 
     auto & chunk_meta = region.metas[chunk_position];
 
+#ifdef NEW_REGION_FORMAT
+    region.data_memory.increaseUsedSpace(destination_length);
+
+    chunk_meta.size = static_cast<int>(destination_length);
+    chunk_meta.location = destination;
+    assert(chunk_meta.loc == CType::NOWHERE && "Chunk must not already exist when saving it.");
+    chunk_meta.loc = CType::MEMORY;
+
+    // region.size += destination_length; <- should be computed at saving time?
+#else
     chunk_meta.size = static_cast<int>(destination_length);
     chunk_meta.offset = region.size;
 
     region.size += static_cast<int>(destination_length);
+#endif
+
     region.needs_save = true;
 }
 
 //==============================================================================
-void World::saveChunkToRegion(const iVec3 chunk_position)
+void World::saveChunkToRegionOld(const iVec3 chunk_position)
 {
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
     auto & region = m_regions[region_position];
@@ -1330,7 +1461,8 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
     assert(all(m_chunk_statuses[chunk_position].position == chunk_position) && "Broken data structure.");
 
     // load correct region
-    loadRegion(region_position);
+    assert(all(region.position == region_position) && "Assuming that the correct region is already loaded.");
+    //loadRegionNew(region_position);
 
     uLong destination_length = compressBound(static_cast<uLong>(CHUNK_DATA_SIZE));
 
@@ -1357,14 +1489,92 @@ void World::saveChunkToRegion(const iVec3 chunk_position)
     auto & chunk_meta = region.metas[chunk_position];
 
     chunk_meta.size = static_cast<int>(destination_length);
+#ifdef NEW_REGION_FORMAT
+    chunk_meta.offset_n = region.size;
+#else
     chunk_meta.offset = region.size;
+#endif
 
     region.size += static_cast<int>(destination_length);
     region.needs_save = true;
 }
 
 //==============================================================================
-void World::saveRegionToDrive(const iVec3 region_position)
+void World::saveRegionToDriveNew(const iVec3 region_position)
+{
+    /*const*/ auto & region = m_regions[region_position];
+
+    if (!region.needs_save)
+        return;
+
+    assert(all(region.position == region_position) && "Chunk was probably never initialized. Control flow should have never reached this.");
+
+    const auto from_chunk = region_position * CHUNK_REGION_SIZES; // opposite of floorDiv( ... , ... )
+    const auto to_chunk = from_chunk + CHUNK_REGION_SIZES;
+
+    iVec3 position;
+    std::size_t total_size_of_chunks_in_memory{ 0 };
+    std::vector<ChunkMeta *> to_save; // TODO: flat preallocated array instead of vector
+
+    // find out what chunks need to be saved
+    for (position(2) = from_chunk(2); position(2) <= to_chunk(2); ++position(2))
+        for (position(1) = from_chunk(1); position(1) <= to_chunk(1); ++position(1))
+            for (position(0) = from_chunk(0); position(0) <= to_chunk(0); ++position(0))
+            {
+                auto & chunk_meta = region.metas[position];
+                if (chunk_meta.loc == CType::MEMORY)
+                {
+                    assert(chunk_meta.size != 0 && chunk_meta.location != nullptr && chunk_meta.offset_n == 0 && "Data structure is broken.");
+                    total_size_of_chunks_in_memory += chunk_meta.size;
+                    const auto * test = &chunk_meta;
+                    to_save.push_back(&chunk_meta);
+                    chunk_meta.loc = CType::FILE;
+                }
+            }
+
+    // fix file size
+    if (region.size + static_cast<int>(total_size_of_chunks_in_memory) > region.container_size)
+    {
+        //Debug::print("Reallocating region container.");
+        const auto new_container_size = region.size + static_cast<int>(total_size_of_chunks_in_memory);
+        auto * const new_data = (Bytef*)std::realloc(region.data, static_cast<std::size_t>(new_container_size));
+        if (new_data == nullptr) throw 0;
+        region.container_size = new_container_size;
+        region.data = new_data;
+    }
+
+    // move to file
+    for (auto & chunk_meta : to_save)
+    {
+        Bytef * destination = region.data + region.size;
+        chunk_meta->offset_n = region.size;
+        region.size += chunk_meta->size;
+        chunk_meta->location = nullptr; // don't worry the memory will be recycled automatically
+        chunk_meta->loc = CType::FILE;
+    }
+
+    assert(region.size <= region.container_size && "Oops, buffer overflow.");
+
+    // save only if valid
+    assert(all(region_position == region.position) && "Trying to save invalid region.");
+
+    // save region
+    Debug::print("Saving region ", toString(region.position));
+    assert((region.size == 0 && region.data == nullptr || region.size > 0 && region.data != nullptr) && "Data structure is broken.");
+
+    const std::string file_name = WORLD_ROOT + toString(region.position);
+    std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
+
+    file.write(reinterpret_cast<const char *>(&region.size), sizeof(region.size));
+    file.write(reinterpret_cast<const char *>(region.metas.begin()), sizeof(region.metas));
+    if (region.size > 0)
+        file.write(reinterpret_cast<const char *>(region.data), region.size);
+
+    if (!file.good()) std::runtime_error("Writing file failed.");
+}
+
+//==============================================================================
+void World::saveRegionToDriveOld(const iVec3 region_position)
 {
     const auto & region = m_regions[region_position];
 

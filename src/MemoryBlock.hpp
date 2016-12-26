@@ -12,6 +12,12 @@ class MemoryBlock
 public:
     MemoryBlock() {}
 
+    void reset()
+    {
+        this->~MemoryBlock();
+        new (this) MemoryBlock;
+    }
+
     char * getBlock(const std::size_t size)
     {
 #ifndef NDEBUG
@@ -42,6 +48,10 @@ public:
         assert(m_pending_update == true && "Can not finish update if there is a no pending update.");
 #endif
         m_first->increaseUsedSpace(increase_by);
+
+#ifndef NDEBUG
+        m_pending_update = false;
+#endif
     }
 
     ~MemoryBlock()

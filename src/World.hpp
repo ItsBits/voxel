@@ -1,5 +1,7 @@
 #pragma once
 
+#define NEW_REGION_FORMAT
+
 #include "MemoryBlock.hpp"
 #include "RingBufferSingleProducerSingleConsumer.hpp"
 #include "SparseMap.hpp"
@@ -29,7 +31,13 @@ struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
 struct MeshMeta { iVec3 position; bool empty; };
 
+#ifdef NEW_REGION_FORMAT
+enum class CType { MEMORY, FILE, NOWHERE }; // also for determining what's in the union
+//struct ChunkMeta { int size; CType loc; union { int offset_n; Bytef * location; }; };
+struct ChunkMeta { int size; CType loc; struct { int offset_n; Bytef * location; }; }; // Unions could also work and would use less space, but i had few minor bugs with unions and will for now fix them by replacing union with struct
+#else
 struct ChunkMeta { int size; int offset; };
+#endif
 
 enum class Status : char { UNLOADED, LOADED, CHECKED };
 
@@ -146,7 +154,13 @@ private:
     {
         iVec3 position;
         ModTable<ChunkMeta, int, CHUNK_REGION_SIZES(0), CHUNK_REGION_SIZES(1), CHUNK_REGION_SIZES(2)> metas;
+#ifdef NEW_REGION_FORMAT
+        // yes, use both
+        MemoryBlock<> data_memory;
         Bytef * data; // TODO: replace pointer with RAII mechanism
+#else
+        Bytef * data; // TODO: replace pointer with RAII mechanism
+#endif
         int size, container_size;
         std::mutex write_lock;
         bool needs_save;
@@ -188,9 +202,10 @@ private:
     // loader functions
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
-    void loadChunkToChunkContainer(const iVec3 chunk_position);
+    void loadChunkToChunkContainerOld(const iVec3 chunk_position);
     void loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * const chunks, iVec3 * const chunk_meta);
-    void saveRegionToDrive(const iVec3 region_position);
+    void saveRegionToDriveNew(const iVec3 region_position);
+    void saveRegionToDriveOld(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
     template<typename GetBlock>
@@ -211,8 +226,9 @@ private:
     MeshCache::Status getMeshStatus(const iVec3 mesh_position);
     Block & getBlock(const iVec3 block_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
-    void loadRegion(const iVec3 region_position);
-    void saveChunkToRegion(const iVec3 chunk_position);
+    void loadRegionOld(const iVec3 region_position);
+    void loadRegionNew(const iVec3 region_position);
+    void saveChunkToRegionOld(const iVec3 chunk_position);
     void saveChunkToRegionNew(const Block * const source, const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
     bool removeOutOfRangeMeshes(const iVec3 center_mesh); // returns false if buffer is full and operation was not completed
