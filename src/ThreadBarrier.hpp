@@ -23,15 +23,8 @@ public:
         else
         {
             const auto sign_was = m_sign;
-            m_condition.wait(lock, [this, sign_was] { return (sign_was != m_sign) || m_disable; });
+            m_condition.wait(lock, [this, sign_was] { return sign_was != m_sign; });
         }
-    }
-
-    void disable()
-    {
-        std::unique_lock<std::mutex> lock{ m_lock };
-        m_disable = true;
-        m_condition.notify_all();
     }
 
 private:
@@ -39,7 +32,6 @@ private:
     std::mutex m_lock;
     int m_waiting_count{ 0 };
     const int m_thread_count;
-    bool m_sign{ true };
-    bool m_disable{ false };
+    bool m_sign{ true }; // does not matter whether true or false as long as it is initialized to one of these
 
 };

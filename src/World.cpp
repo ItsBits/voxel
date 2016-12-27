@@ -995,10 +995,14 @@ void World::multiThreadMeshLoader(const int thread_id)
     const iVec3 center_chunk = iVec3{ 0, 0, 0 }; // dummys
 
     while (!m_quit)
-    //while (true)
     {
         auto current_index = m_iterator_index.fetch_add(1);
         auto task = m_iterator.m_points[current_index];
+
+        // TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED
+        if (current_index >= m_iterator.m_points.size())
+            break;
+
         assert(current_index < m_iterator.m_points.size() && "Out of bounds access.");
 
         switch (task.task)
@@ -1057,7 +1061,7 @@ void World::multiThreadMeshLoader(const int thread_id)
                     auto * command = m_commands.initPush();
 
                     // buffer is full
-                    while (command == nullptr)
+                    while (command == nullptr) // TODO: fix that: exit + buffer_stall = deadlock because worker threads are waiting for queue to have space and render thread will not empty the queue
                     {
                         std::cout << "Buffer stall. Sleeping" << std::endl;
                         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -1077,11 +1081,13 @@ void World::multiThreadMeshLoader(const int thread_id)
             {
                 assert (current_index == m_iterator.m_points.size() - 1 && "End marker should only appear at the end of the hardcoded iterator.");
 
-                m_iterator_index = 0;
-                m_barrier.wait();
-                // return is temporary and is here to prevent errors (only works if only 1 thread is running)
-                return; // TODO: remove that that's temporary because checking if chunk is already loaded is not implmented yet and because REMOVE commant to renderer is also not implemented yet
+                goto TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED;
 
+                m_iterator_index = 0;
+
+                std::this_thread::sleep_for(std::chrono::seconds(3)); // TODO: replace with condition variable, that signals when the need to start workers exists
+
+                m_barrier.wait();
             }
             break;
             default:
@@ -1092,7 +1098,16 @@ void World::multiThreadMeshLoader(const int thread_id)
         }
     }
 
-    m_barrier.disable();
+TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED:
+    // mechanism for exiting worker threads
+    m_exited_threads.fetch_add(1);
+    while (true)
+    {
+        m_barrier.wait();
+
+        if (m_exited_threads == THREAD_COUNT)
+            break;
+    }
 }
 
 //==============================================================================

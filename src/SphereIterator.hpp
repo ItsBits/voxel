@@ -145,7 +145,7 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
   // TODO: verify correctness
     // TODO: try only doing positive octant (all other positions are mirrored (+++)(++-)(+-+)(+--)(-++)(-+-)(--+)(---)
     size_t re = m_points_tmp.size();
-    const size_t one_percent = re / 100;
+    const size_t one_percent = re / 100 == 0 ? 1 : re / 100;
   for (const auto & i : m_points_tmp)
   {
       if (--re % one_percent == 0)

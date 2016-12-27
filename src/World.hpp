@@ -191,6 +191,7 @@ private:
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
     std::atomic<iVec3> m_center_mesh;
     std::atomic_bool m_quit;
+    std::atomic_int m_exited_threads{ 0 };
     std::atomic_bool m_moved_center_mesh;
 
     //==============================================================================
