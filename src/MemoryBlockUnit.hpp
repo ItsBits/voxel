@@ -33,7 +33,7 @@ public:
         const auto subtract = sizeof(m_end) + sizeof(m_next);
 
         if
-            (size < subtract) return PAGE_SIZE;
+            (size < subtract) return PAGE_SIZE; // TODO: fix that. This is not what I wanted.
         else
             return size - subtract;
     }

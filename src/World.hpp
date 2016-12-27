@@ -52,7 +52,7 @@ struct Command
 
 struct MeshWPos { Mesh mesh; iVec3 position; };
 
-enum class WorldType { SINE, SMALL_BLOCK, FLOOR, EMPTY };
+enum class WorldType { SINE, SMALL_BLOCK, FLOOR, SIMPLEX_2D, EMPTY };
 
 //==============================================================================
 class World
@@ -238,6 +238,7 @@ private:
     void multiThreadMeshLoader(const int thread_id);
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
+    void simplex2DChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
     void emptyChunk(const iVec3 from_block, const iVec3 to_block);
     void sineChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
     void emptyChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);

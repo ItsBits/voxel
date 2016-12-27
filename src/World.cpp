@@ -8,6 +8,8 @@
 #include <cstring>
 #include <fstream>
 #include <malloc.h>
+#include <stdlib.h>
+#include <glm/gtc/noise.hpp>
 
 //==============================================================================
 constexpr char World::WORLD_ROOT[];
@@ -190,6 +192,7 @@ World::~World()
 }
 
 //==============================================================================
+[[deprecated]]
 Block & World::getBlock(const iVec3 block_position)
 {
     const auto block_index = positionToIndex(block_position, CHUNK_SIZES);
@@ -201,6 +204,7 @@ Block & World::getBlock(const iVec3 block_position)
 }
 
 //==============================================================================
+[[deprecated]]
 void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 {
     assert(all(from_block < to_block) && "From values must be lower than to values.");
@@ -289,6 +293,7 @@ void World::loadRegionNew(const iVec3 region_position)
 }
 
 //==============================================================================
+[[deprecated]]
 void World::loadRegionOld(const iVec3 region_position)
 {
     auto & region = m_regions[region_position];
@@ -475,6 +480,7 @@ void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * con
 }
 
 //==============================================================================
+[[deprecated]]
 void World::loadChunkToChunkContainerOld(const iVec3 chunk_position)
 {
     auto & chunk_status = m_chunk_statuses[chunk_position];
@@ -587,6 +593,7 @@ std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iV
 }
 
 //==============================================================================
+[[deprecated]]
 std::vector<Vertex> World::generateMeshOld(const iVec3 from_block, const iVec3 to_block)
 {
     loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
@@ -792,6 +799,7 @@ unsigned char World::vertexAO(const bool side_a, const bool side_b, const bool c
 }
 
 //==============================================================================
+[[deprecated]]
 void World::generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type)
 {
     switch(world_type)
@@ -809,12 +817,14 @@ void World::generateChunkNew(Block *destination, const iVec3 from_block, const i
     switch(world_type)
     {
         case WorldType::SINE: sineChunkNew(destination, from_block, to_block); break;
+        case WorldType::SIMPLEX_2D: simplex2DChunkNew(destination, from_block, to_block); break;
         case WorldType::EMPTY: emptyChunkNew(destination, from_block, to_block); break;
         default: throw "Not implemented."; break;
     }
 }
 
 //==============================================================================
+[[deprecated]]
 void World::emptyChunk(const iVec3 from_block, const iVec3 to_block)
 {
     iVec3 position;
@@ -838,6 +848,7 @@ void World::emptyChunkNew(Block * destination, const iVec3 from_block, const iVe
 }
 
 //==============================================================================
+[[deprecated]]
 void World::floorTilesChunk(const iVec3 from_block, const iVec3 to_block)
 {
     const iVec3 chunk_position = floorMod(floorDiv(from_block, CHUNK_SIZES), iVec3{ 2, 2, 2 });
@@ -852,6 +863,7 @@ void World::floorTilesChunk(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
+[[deprecated]]
 void World::smallBlockChunk(const iVec3 from_block, const iVec3 to_block)
 {
     iVec3 position;
@@ -871,6 +883,7 @@ void World::smallBlockChunk(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
+[[deprecated]]
 void World::sineChunk(const iVec3 from_block, const iVec3 to_block)
 {
   iVec3 position;
@@ -896,6 +909,37 @@ void World::sineChunk(const iVec3 from_block, const iVec3 to_block)
               block = Block{ 0 };
 
       }
+}
+
+//==============================================================================
+void World::simplex2DChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block)
+{
+    iVec3 position;
+    int i = 0;
+
+    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
+        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
+            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+            {
+                auto & block = destination[i++];
+                const glm::vec2 f_position{ position(0), position(2) };
+                const float y_position = position(1);
+                const auto res = glm::simplex(f_position * 0.03f);
+                if (res * 5.0f > y_position)
+                {
+                    auto random_value = std::rand() % 16;
+
+                    if (random_value < 3)
+                        block = Block{ 3 };
+                    else if (random_value < 11)
+                        block = Block{ 2 };
+                    else
+                        block = Block{ 1 };
+                }
+                else
+                    block = Block{ 0 };
+
+            }
 }
 
 //==============================================================================
@@ -1043,7 +1087,7 @@ void World::multiThreadMeshLoader(const int thread_id)
 
                 if (chunk_meta.loc == CType::NOWHERE)
                 {
-                    generateChunkNew(container.get(), from, to, WorldType::SINE);
+                    generateChunkNew(container.get(), from, to, WorldType::SIMPLEX_2D);
                     saveChunkToRegionNew(container.get(), chunk_position);
                 }
             }
@@ -1111,6 +1155,7 @@ TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED:
 }
 
 //==============================================================================
+[[deprecated]]
 void World::meshLoader()
 {
     while (!m_quit)
@@ -1469,6 +1514,7 @@ void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_p
 }
 
 //==============================================================================
+[[deprecated]]
 void World::saveChunkToRegionOld(const iVec3 chunk_position)
 {
     const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
@@ -1595,6 +1641,7 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
 }
 
 //==============================================================================
+[[deprecated]]
 void World::saveRegionToDriveOld(const iVec3 region_position)
 {
     const auto & region = m_regions[region_position];
