@@ -1047,6 +1047,35 @@ void World::multiThreadMeshLoader(const int thread_id)
         if (current_index >= m_iterator.m_points.size())
             break;
 
+        if (m_moved_center_mesh == true)
+        {
+            // gather all threads
+            m_waiting_threads.fetch_add(1);
+            while (true)
+            {
+                m_barrier.wait();
+                if (m_waiting_threads == THREAD_COUNT) break;
+            }
+
+            m_barrier.wait(); // oh boy, that's needed because all threads must exit before following if ise executed
+
+            if (thread_id == 0)
+            {
+                // TODO: actually change center
+
+                // You are the 0 thread. I've got bad news for you. You'll have to do all the serial work.
+                m_waiting_threads = 0;
+                m_moved_center_mesh = false;
+
+                // TODO: figure out if this is serializing too much. (probably debends on renderer command execution speed and buffer size)
+                // remove all out of range meshes
+                while (!removeOutOfRangeMeshes(center_mesh))
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // buffer stall
+            }
+
+            m_barrier.wait();
+        }
+
         assert(current_index < m_iterator.m_points.size() && "Out of bounds access.");
 
         switch (task.task)
@@ -1096,6 +1125,13 @@ void World::multiThreadMeshLoader(const int thread_id)
             {
                 // TODO: at least remember if mesh is empty, so that chunks won't need to de loaded if empty
                 const auto current_mesh_position = task.position + center_mesh;
+
+                // TODO: assert in range
+
+                // no need for locking ?
+                if (m_mesh_loaded[current_mesh_position] != Status::UNLOADED)
+                    continue;
+
                 const auto mesh = generateMeshNew(current_mesh_position, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
 
                 if (mesh.size() != 0)
@@ -1119,6 +1155,12 @@ void World::multiThreadMeshLoader(const int thread_id)
 
                     m_commands.commitPush();
                 }
+
+                // update mesh state
+                // no need for locking ?
+                m_mesh_loaded[current_mesh_position] = Status::LOADED;
+                std::unique_lock<std::mutex> lock{ m_loaded_meshes_lock };
+                m_loaded_meshes.push_back({current_mesh_position, mesh.size() == 0});
             }
             break;
             case decltype(m_iterator)::Task::END_MARKER:
@@ -1360,7 +1402,11 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6])
     const auto old_center_mesh = m_center_mesh.exchange(center_mesh);
 
     if (!all(old_center_mesh == center_mesh))
+    {
+        //std::cout << "Old: " << toString(old_center_mesh) << std::endl;
+        //std::cout << "New: " << toString(center_mesh) << std::endl;
         m_moved_center_mesh = true;
+    }
 
     executeRendererCommands(MAX_COMMANDS_PER_FRAME);
 

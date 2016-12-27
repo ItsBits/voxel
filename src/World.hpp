@@ -151,6 +151,8 @@ private:
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
+    std::mutex m_loaded_meshes_lock; // TODO: replace above vector with container that has a thread safe push operation (easy peasy)
+
     struct Region
     {
         iVec3 position;
@@ -192,6 +194,7 @@ private:
     std::atomic<iVec3> m_center_mesh;
     std::atomic_bool m_quit;
     std::atomic_int m_exited_threads{ 0 };
+    std::atomic_int m_waiting_threads{ 0 };
     std::atomic_bool m_moved_center_mesh;
 
     //==============================================================================
