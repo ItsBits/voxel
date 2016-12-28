@@ -9,8 +9,8 @@ public:
 
     T v[S];
 
-    constexpr const T & operator () (int i) const { return v[i]; }
-    constexpr T & operator () (int i) { return v[i]; }
+    constexpr const T & operator () (int i) const { return v[i]; } // TODO: assert in bounds
+    constexpr T & operator () (int i) { return v[i]; } // TODO: assert in bounds
 };
 
 //==============================================================================
@@ -22,10 +22,10 @@ public:
 
     T m[W * H];
 
-    const T & operator () (int i) const { return m[i]; }
-    T & operator () (int i) { return m[i]; }
-    const T & operator () (int w, int h) const { return m[h * W + w]; }
-    T & operator () (int w, int h) { return m[h * W + w]; }
+    const T & operator () (int i) const { return m[i]; } // TODO: assert in bounds
+    T & operator () (int i) { return m[i]; } // TODO: assert in bounds
+    const T & operator () (int w, int h) const { return m[h * W + w]; } // TODO: assert in bounds
+    T & operator () (int w, int h) { return m[h * W + w]; } // TODO: assert in bounds
 };
 
 //==============================================================================

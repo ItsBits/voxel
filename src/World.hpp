@@ -1,5 +1,8 @@
 #pragma once
 
+#define NEW_REGION_FORMAT
+
+#include "MemoryBlock.hpp"
 #include "RingBufferSingleProducerSingleConsumer.hpp"
 #include "SparseMap.hpp"
 #include "TinyAlgebra.hpp"
@@ -8,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <GL/gl3w.h>
+
 // TODO: checkout other compression libraries that are faster
 #include <zlib.h>
 #include <thread>
@@ -17,8 +21,53 @@
 #include <stack>
 #include <queue>
 #include "ModTable.hpp"
+#include "ThreadBarrier.hpp"
 
-// TODO: abstract and reuse repetitive data structures like m_mesh_caches and m_regions
+struct UniqueBarrier
+{
+public:
+    UniqueBarrier(const int th_count) : m_size{ th_count } {}
+
+    void wait(ThreadBarrier & barrier)
+    {
+        m_lock.lock();
+
+        ++m_count;
+
+        if (m_count == m_size)
+        {
+            m_count = 0;
+            m_sign = !m_sign;
+            m_lock.unlock();
+            barrier.wait();
+            return;
+        }
+        else
+        {
+            const bool previous = m_sign;
+
+            while (true)
+            {
+                m_lock.unlock();
+
+                barrier.wait();
+
+                m_lock.lock();
+                if (previous != m_sign)
+                {
+                    m_lock.unlock();
+                    return;
+                }
+            }
+        }
+    }
+
+private:
+    std::mutex m_lock;
+    int m_count{ 0 };
+    const int m_size;
+    bool m_sign{ false };
+};
 
 // TODO: expand
 // TODO: char instead of int position and type
@@ -28,7 +77,13 @@ struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
 struct MeshMeta { iVec3 position; bool empty; };
 
+#ifdef NEW_REGION_FORMAT
+enum class CType { MEMORY, FILE, NOWHERE }; // also for determining what's in the union
+//struct ChunkMeta { int size; CType loc; union { int offset_n; Bytef * location; }; };
+struct ChunkMeta { int size; CType loc; struct { int offset_n; Bytef * location; }; }; // Unions could also work and would use less space, but i had few minor bugs with unions and will for now fix them by replacing union with struct
+#else
 struct ChunkMeta { int size; int offset; };
+#endif
 
 enum class Status : char { UNLOADED, LOADED, CHECKED };
 
@@ -43,7 +98,7 @@ struct Command
 
 struct MeshWPos { Mesh mesh; iVec3 position; };
 
-enum class WorldType { SINE, SMALL_BLOCK, FLOOR, EMPTY };
+enum class WorldType { SINE, SMALL_BLOCK, FLOOR, SIMPLEX_2D, EMPTY };
 
 //==============================================================================
 class World
@@ -60,7 +115,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 14 },
+            RDISTANCE{ 15 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -114,6 +169,13 @@ private:
     static constexpr int MESH_CACHE_DATA_SIZE_FACTOR{ 4096 * 64 };
     static constexpr int REGION_DATA_SIZE_FACTOR{ CHUNK_DATA_SIZE * 128 };
 
+    static constexpr int THREAD_COUNT{ 3 }; // locking issues. multi threads are not working, because of reallocating region data?
+
+public:
+    static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
+    static constexpr iVec3 chunk_container_size{ 2, 2, 2 };
+private:
+
     //==============================================================================
     // variables
 
@@ -127,16 +189,31 @@ private:
     // TODO: more space efficient format than current (3 states only needed)
     ModTable<Status, int, MESH_CONTAINER_SIZES(0), MESH_CONTAINER_SIZES(1), MESH_CONTAINER_SIZES(2)> m_mesh_loaded;
 
-    SphereIterator<RDISTANCE> m_iterator;
+    std::thread m_workers[THREAD_COUNT];
+    SphereIterator<RDISTANCE, THREAD_COUNT> m_iterator;
+    std::atomic_int m_iterator_index{ 0 };
+    std::atomic<iVec3> m_loader_center;
+    ThreadBarrier m_barrier{ THREAD_COUNT };
+    UniqueBarrier m_ugly_hacky_thingy{ THREAD_COUNT };
+    std::mutex m_ring_buffer_lock; // TODO: my idea was to create a lock free system, but this might be okay
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
     std::vector<MeshMeta> m_loaded_meshes; // contains all loaded meshes
+    std::mutex m_loaded_meshes_lock; // TODO: replace above vector with container that has a thread safe push operation (easy peasy)
+
     struct Region
     {
         iVec3 position;
         ModTable<ChunkMeta, int, CHUNK_REGION_SIZES(0), CHUNK_REGION_SIZES(1), CHUNK_REGION_SIZES(2)> metas;
+#ifdef NEW_REGION_FORMAT
+        // yes, use both
+        MemoryBlock<> data_memory;
         Bytef * data; // TODO: replace pointer with RAII mechanism
+#else
+        Bytef * data; // TODO: replace pointer with RAII mechanism
+#endif
         int size, container_size;
+        std::mutex write_lock;
         bool needs_save;
     };
     ModTable<Region, int, CHUNK_REGION_CONTAINER_SIZES(0), CHUNK_REGION_CONTAINER_SIZES(1), CHUNK_REGION_CONTAINER_SIZES(2)> m_regions;
@@ -164,6 +241,9 @@ private:
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
     std::atomic<iVec3> m_center_mesh;
     std::atomic_bool m_quit;
+    std::atomic_int m_exited_threads{ 0 };
+    std::atomic_int m_waiting_threads{ 0 };
+    std::atomic_bool m_waiting_threads_sign{ false };
     std::atomic_bool m_moved_center_mesh;
 
     //==============================================================================
@@ -176,23 +256,44 @@ private:
     // loader functions
     std::vector<Vertex> loadMesh(const iVec3 mesh_position);
     void exitLoaderThread();
-    void loadChunkToChunkContainer(const iVec3 chunk_position);
-    void saveRegionToDrive(const iVec3 region_position);
+    void loadChunkToChunkContainerOld(const iVec3 chunk_position);
+    void loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * const chunks, iVec3 * const chunk_meta);
+    void saveRegionToDriveNew(const iVec3 region_position);
+    void saveRegionToDriveOld(const iVec3 region_position);
     void saveMeshCacheToDrive(const iVec3 mesh_cache_position);
     void loadChunkRange(const iVec3 from_block, const iVec3 to_block);
-    std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block);
+    template<typename GetBlock>
+    std::vector<Vertex> generateMesh(const iVec3 from_block, const iVec3 to_block, GetBlock blockGet);
+    std::vector<Vertex> generateMeshNew(const iVec3 mesh_position, /*const iVec3 chunk_container_size,*/ Block * const chunks, iVec3 * const chunk_metas);
+    std::vector<Vertex> generateMeshOld(const iVec3 from_block, const iVec3 to_block);
+    class BlockGetter // this is temporary, to reduce boilerplate (duplicating generateMesh)
+    {
+    public:
+        BlockGetter(World * w) : world{ w } {}
+        Block & operator () (const iVec3 block_position) { return world->getBlock(block_position); }
+    private:
+        World * world;
+    };
+
     void generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
+    void generateChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block, const WorldType world_type);
     MeshCache::Status getMeshStatus(const iVec3 mesh_position);
     Block & getBlock(const iVec3 block_position);
     void loadMeshCache(const iVec3 mesh_cache_position);
-    void loadRegion(const iVec3 region_position);
-    void saveChunkToRegion(const iVec3 chunk_position);
+    void loadRegionOld(const iVec3 region_position);
+    void loadRegionNew(const iVec3 region_position);
+    void saveChunkToRegionOld(const iVec3 chunk_position);
+    void saveChunkToRegionNew(const Block * const source, const iVec3 chunk_position);
     void saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh);
     bool removeOutOfRangeMeshes(const iVec3 center_mesh); // returns false if buffer is full and operation was not completed
     void meshLoader();
+    void multiThreadMeshLoader(const int thread_id);
 
     void sineChunk(const iVec3 from_block, const iVec3 to_block);
+    void simplex2DChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
     void emptyChunk(const iVec3 from_block, const iVec3 to_block);
+    void sineChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
+    void emptyChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
     void smallBlockChunk(const iVec3 from_block, const iVec3 to_block);
     void floorTilesChunk(const iVec3 from_block, const iVec3 to_block);
 
