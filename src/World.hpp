@@ -23,6 +23,52 @@
 #include "ModTable.hpp"
 #include "ThreadBarrier.hpp"
 
+struct UniqueBarrier
+{
+public:
+    UniqueBarrier(const int th_count) : m_size{ th_count } {}
+
+    void wait(ThreadBarrier & barrier)
+    {
+        m_lock.lock();
+
+        ++m_count;
+
+        if (m_count == m_size)
+        {
+            m_count = 0;
+            m_sign = !m_sign;
+            m_lock.unlock();
+            barrier.wait();
+            return;
+        }
+        else
+        {
+            const bool previous = m_sign;
+
+            while (true)
+            {
+                m_lock.unlock();
+
+                barrier.wait();
+
+                m_lock.lock();
+                if (previous != m_sign)
+                {
+                    m_lock.unlock();
+                    return;
+                }
+            }
+        }
+    }
+
+private:
+    std::mutex m_lock;
+    int m_count{ 0 };
+    const int m_size;
+    bool m_sign{ false };
+};
+
 // TODO: expand
 // TODO: char instead of int position and type
 struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
@@ -148,6 +194,7 @@ private:
     std::atomic_int m_iterator_index{ 0 };
     std::atomic<iVec3> m_loader_center;
     ThreadBarrier m_barrier{ THREAD_COUNT };
+    UniqueBarrier m_ugly_hacky_thingy{ THREAD_COUNT };
     std::mutex m_ring_buffer_lock; // TODO: my idea was to create a lock free system, but this might be okay
 
     // TODO: Maybe replace by array and size counter. Max possible size should be equal to MESH_CONTAINER_SIZE_X * MESH_CONTAINER_SIZE_Y * MESH_CONTAINER_SIZE_Z, but is overkill.
@@ -196,6 +243,7 @@ private:
     std::atomic_bool m_quit;
     std::atomic_int m_exited_threads{ 0 };
     std::atomic_int m_waiting_threads{ 0 };
+    std::atomic_bool m_waiting_threads_sign{ false };
     std::atomic_bool m_moved_center_mesh;
 
     //==============================================================================

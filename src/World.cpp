@@ -1046,9 +1046,8 @@ void World::multiThreadMeshLoader(const int thread_id)
         auto current_index = m_iterator_index.fetch_add(1);
         auto task = m_iterator.m_points[current_index];
 
-        Debug::print("Thread: ", thread_id, " | Task ID: ", current_index, " | Task: ", toString(task.position), " - ", static_cast<int>(task.task));
+//        Debug::print("Thread: ", thread_id, " | Task ID: ", current_index, " | Task: ", toString(task.position), " - ", static_cast<int>(task.task));
 
-        // TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED
         if (current_index >= m_iterator.m_points.size())
             //break;
             throw 1;
@@ -1056,23 +1055,24 @@ void World::multiThreadMeshLoader(const int thread_id)
         if (m_moved_center_mesh == true)
         {
             // gather all threads
-            auto r = m_waiting_threads.fetch_add(1);
-            Debug::print("T: ", std::to_string(thread_id), " r: ", std::to_string(r));
+            /*auto r = m_waiting_threads.fetch_add(1);
+            Debug::print("T: ", thread_id, " r: ", r);
             while (true)
             {
                 m_barrier.wait();
                 if (m_waiting_threads == THREAD_COUNT) break;
             }
-
-            m_barrier.wait(); // oh boy, that's needed because all threads must exit before following if ise executed
+            // TODO: figure out how to exit all here
+*/
+            m_ugly_hacky_thingy.wait(m_barrier);
 
             if (thread_id == 0)
             {
-                Debug::print("Reset iterator -----------------------");
+//                Debug::print("Reset iterator -----------------------");
 
                 // You are the 0 thread. I've got bad news for you. You'll have to do all the serial work.
                 m_iterator_index = 0; // reset iterator
-                m_waiting_threads = 0;
+//                m_waiting_threads = 0;
                 // the following two lines should be executed atomically, but without it, the program is still correct
                 m_moved_center_mesh = false;
                 m_loader_center = m_center_mesh.load();
@@ -1080,7 +1080,7 @@ void World::multiThreadMeshLoader(const int thread_id)
                 // TODO: figure out if this is serializing too much. (probably debends on renderer command execution speed and buffer size)
                 // remove all out of range meshes
                 while (!removeOutOfRangeMeshes(center_mesh))
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // buffer stall
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // buffer stall
             }
 
             m_barrier.wait();
@@ -1183,8 +1183,6 @@ void World::multiThreadMeshLoader(const int thread_id)
             {
                 assert (current_index == m_iterator.m_points.size() - 1 && "End marker should only appear at the end of the hardcoded iterator.");
 
-//                goto TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED;
-
                 m_iterator_index = 0;
 
                 std::this_thread::sleep_for(std::chrono::seconds(3)); // TODO: replace with condition variable, that signals when the need to start workers exists
@@ -1200,9 +1198,8 @@ void World::multiThreadMeshLoader(const int thread_id)
         }
     }
 
-//TEMPORARY_EXIT_BECAUSE_ONLY_LOADING_WHAT_IS_NEEDED_IS_NOT_IMPLEMENTED:
     // mechanism for exiting worker threads
-    m_exited_threads.fetch_add(1);
+    m_exited_threads.fetch_add(1); // this works but is not reusable
     while (true)
     {
         m_barrier.wait();
