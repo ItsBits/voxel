@@ -146,6 +146,7 @@ private:
     std::thread m_workers[THREAD_COUNT];
     SphereIterator<RDISTANCE, THREAD_COUNT> m_iterator;
     std::atomic_int m_iterator_index{ 0 };
+    std::atomic<iVec3> m_loader_center;
     ThreadBarrier m_barrier{ THREAD_COUNT };
     std::mutex m_ring_buffer_lock; // TODO: my idea was to create a lock free system, but this might be okay
 
