@@ -5,6 +5,8 @@ flat in vec4 ao_colors;
 
 uniform sampler2DArray block_texture_array;
 
+uniform vec3 lighting;
+
 out vec4 color;
 
 float biLerp(float a, float b, float c, float d, float s, float t)
@@ -20,5 +22,5 @@ void main()
 
   vec4 color_t = texture(block_texture_array, texture_coord);
 
-  color = vec4(vec3(color_t.r, color_t.g, color_t.b) * interpolated_shade, color_t.a);
+  color = vec4(vec3(color_t.r, color_t.g, color_t.b) * interpolated_shade * lighting, color_t.a);
 }

@@ -1062,9 +1062,8 @@ void World::multiThreadMeshLoader(const int thread_id)
                 m_barrier.wait();
                 if (m_waiting_threads == THREAD_COUNT) break;
             }
-            // TODO: figure out how to exit all here
 */
-            m_ugly_hacky_thingy.wait(m_barrier);
+            m_ugly_hacky_thingy.wait(m_barrier); // TODO: fix deadlock: threads can wait on this or on exit barrier and get stuck
 
             if (thread_id == 0)
             {
@@ -1202,7 +1201,7 @@ void World::multiThreadMeshLoader(const int thread_id)
     m_exited_threads.fetch_add(1); // this works but is not reusable
     while (true)
     {
-        m_barrier.wait();
+        m_barrier.wait(); // TODO: fix deadlock: threads can wait on this or on center sync barrier and get stuck
 
         if (m_exited_threads == THREAD_COUNT)
             break;

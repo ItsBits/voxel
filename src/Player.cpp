@@ -87,8 +87,10 @@ void Player::updateCameraRotation()
 }
 
 //==============================================================================
-void Player::updateSpeed(const float delta_time)
+void Player::updateSpeed(const float new_speed)
 {
+  m_speed = new_speed * Player::SPEED_MAX;
+  /*
   if (Keyboard::getKey(GLFW_KEY_Y) != Keyboard::getKey(GLFW_KEY_I))
   {
     if (Keyboard::getKey(GLFW_KEY_Y) == Keyboard::Status::PRESSED)
@@ -106,6 +108,7 @@ void Player::updateSpeed(const float delta_time)
         m_speed = Player::SPEED_MIN;
     }
   }
+   */
 }
 
 //==============================================================================

@@ -5,6 +5,7 @@
 #include "TinyAlgebraExtensions.hpp"
 #include "Debug.hpp"
 #include "Profiler.hpp"
+#include "Keyboard.hpp"
 #include <glm/gtx/string_cast.hpp>
 
 //==============================================================================
@@ -42,6 +43,8 @@ Voxel::Voxel(const std::string & name) :
     m_block_VP_matrix_location = glGetUniformLocation(m_block_shader.id(), "VP_matrix");
     GLint block_texture_array_location = glGetUniformLocation(m_block_shader.id(), "block_texture_array");
     glUniform1i(block_texture_array_location, 0);
+    m_block_light_location = glGetUniformLocation(m_block_shader.id(), "light");
+    m_block_lighting_location = glGetUniformLocation(m_block_shader.id(), "lighting");
 
     m_text_shader.use();
     m_text_ratio_location = glGetUniformLocation(m_text_shader.id(), "ratio");
@@ -104,7 +107,7 @@ void Voxel::run()
     while (!m_window.exitRequested())
     {
         const double current_time = glfwGetTime();
-        double delta_time = current_time - last_time;
+        double delta_time = current_time - last_time; // TODO: separate framerate from user input, introtuce fixed timestamp for user updates (except maybe head rotation)
         last_time = current_time;
 
         // update FPS counter
@@ -118,10 +121,13 @@ void Voxel::run()
 #if 1
             const auto pos = m_player.getPosition();
             const auto int_pos = intFloor(fVec3{ pos.x, pos.y, pos.z });
+            const auto current_settings = m_settings.current();
+            const auto current_settings_val = m_settings.getInt(current_settings);
             m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)) + "\n" +
                                  std::to_string(int_pos(0)) + "|" +
                                  std::to_string(int_pos(1)) + "|" +
-                                 std::to_string(int_pos(2))
+                                 std::to_string(int_pos(2)) + "\n" +
+                                 "Settings:" + std::to_string(current_settings) + " => " + std::to_string(current_settings_val)
             );
 #else // demo
             m_screen_text.update(
@@ -136,11 +142,14 @@ void Voxel::run()
 
         glfwPollEvents();
 
+        updateSettings();
+
         const auto scroll = Mouse::getScrollMovement()(1);
         if (scroll > 0.1) m_window.unlockMouse();
         else if (scroll < -0.1) m_window.lockMouse();
 
         // update position and stuff
+        m_player.updateSpeed(m_settings.get(SPD_P));
         m_player.updateCameraAndItems();
         m_player.updateVelocity(static_cast<float>(delta_time));
         m_player.applyVelocity(static_cast<float>(delta_time));
@@ -155,6 +164,15 @@ void Voxel::run()
         m_block_shader.use();
         const glm::mat4 VP_matrix = m_camera.getViewProjectionMatrix();
         glUniformMatrix4fv(m_block_VP_matrix_location, 1, GL_FALSE, glm::value_ptr(VP_matrix));
+
+        //const auto light = (static_cast<float>(std::sin(current_time)) + 1) / 2.0;
+        const auto light = static_cast<float>(m_settings.get(LIGHT_L));
+        const auto r = static_cast<float>(m_settings.get(RED_L));
+        const auto g = static_cast<float>(m_settings.get(GRE_L));
+        const auto b = static_cast<float>(m_settings.get(BLU_L));
+        glUniform1f(m_block_light_location, light);
+        glUniform3f(m_block_lighting_location, r, g, b);
+
         const auto center = m_player.getPosition();
         fVec4 frustum_planes[6];
         matrixToFrustums(VP_matrix, frustum_planes);
@@ -182,4 +200,22 @@ void Voxel::run()
 
     m_window.unlockMouse();
     m_window.swapResizeClearBuffer();
+}
+
+//==============================================================================
+void Voxel::updateSettings()
+{
+    // assuming number keys are consecutive (which they are in my GLFW3 version)
+    for (int i = 0; i < 10; ++i)
+        if (Keyboard::getKey(GLFW_KEY_0 + i) == Keyboard::Status::PRESSED)
+        {
+            m_settings.change(i);
+            break;
+        }
+
+    if (Keyboard::getKey(GLFW_KEY_W) == Keyboard::Status::PRESSED)
+        m_settings.increment();
+    else if (Keyboard::getKey(GLFW_KEY_S) == Keyboard::Status::PRESSED)
+        m_settings.decrement();
+
 }

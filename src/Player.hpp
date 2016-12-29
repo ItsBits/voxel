@@ -29,6 +29,7 @@ public:
     float getPitch() const { return m_pitch; }
 
     int getHeldItem() const { return m_active_item; }
+    void updateSpeed(const float new_speed);
 
 private:
     void updateFacingDirection();
@@ -52,7 +53,6 @@ private:
     bool getAcceleration(glm::vec3 & acceleration) const;
     glm::vec3 getPlayerForce(const glm::vec3 & force_to_stop) const;
     glm::vec3 getPlayerImpulse();
-    void updateSpeed(const float delta_time);
 
 
     // currently held item
