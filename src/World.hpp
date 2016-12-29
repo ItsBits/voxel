@@ -115,7 +115,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 8 },
+            RDISTANCE{ 15 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -189,6 +189,13 @@ private:
     // TODO: more space efficient format than current (3 states only needed)
     ModTable<Status, int, MESH_CONTAINER_SIZES(0), MESH_CONTAINER_SIZES(1), MESH_CONTAINER_SIZES(2)> m_mesh_loaded;
 
+    static_assert(CHUNK_REGION_SIZES(0) == MESH_REGION_SIZES(0), "Assuming."); // man why must constexpr be so hard
+    static_assert(CHUNK_REGION_SIZES(1) == MESH_REGION_SIZES(1), "Assuming.");
+    static_assert(CHUNK_REGION_SIZES(2) == MESH_REGION_SIZES(2), "Assuming.");
+    static_assert(CHUNK_REGION_CONTAINER_SIZES(0) == CHUNK_REGION_CONTAINER_SIZES(0), "Assuming."); // man why must constexpr be so hard
+    static_assert(CHUNK_REGION_CONTAINER_SIZES(1) == CHUNK_REGION_CONTAINER_SIZES(1), "Assuming.");
+    static_assert(CHUNK_REGION_CONTAINER_SIZES(2) == CHUNK_REGION_CONTAINER_SIZES(2), "Assuming.");
+
     std::thread m_workers[THREAD_COUNT];
     SphereIterator<RDISTANCE, THREAD_COUNT> m_iterator;
     std::atomic_int m_iterator_index{ 0 };
@@ -205,6 +212,8 @@ private:
     {
         iVec3 position;
         ModTable<ChunkMeta, int, CHUNK_REGION_SIZES(0), CHUNK_REGION_SIZES(1), CHUNK_REGION_SIZES(2)> metas;
+        enum class MStatus : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)
+        ModTable<MStatus, int, MESH_REGION_SIZES(0), MESH_REGION_SIZES(1), MESH_REGION_SIZES(2)> mesh_statuses;
 #ifdef NEW_REGION_FORMAT
         // yes, use both
         MemoryBlock<> data_memory;
@@ -218,6 +227,7 @@ private:
     };
     ModTable<Region, int, CHUNK_REGION_CONTAINER_SIZES(0), CHUNK_REGION_CONTAINER_SIZES(1), CHUNK_REGION_CONTAINER_SIZES(2)> m_regions;
 
+    [[deprecated]]
     struct MeshCache
     {
         enum class Status : char { UNKNOWN, EMPTY, NON_EMPTY }; // could be reduced to bitmap (2 bits per mesh)

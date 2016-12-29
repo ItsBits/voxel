@@ -1,38 +1,8 @@
 Issues:
 * at low frame rates, keyboard feels unresponsive
     I assume it's because of GLFW being laggy. Slow refresh rate seem to register a key release + key press at key release
+    Confirmed: GLFW3 bug
 
 * verify correctness of multi threading, chunk loading / unloading (memory leaks / data loss)
 
-* chunk loading feels unresponsive when moving far (again)
-    chunk loader sometimes sleeps even if there is work to do
-
-Verify if solved:
-* verify if loadChunkToChunkContainer order of operations is now correct:
-    // save previous chunk
-    if (chunk_status.needs_save)
-        saveChunkToRegion(chunk_status.position);
-
-    // load region of new chunk
-    if (!all(chunk_region.position == region_position))
-        loadRegion(region_position);
-
-
-Solved:
-* sometimes it appears that there is a deadlock when exiting loader thread
-    (solution: introduce loader thread finished flag)
-* chunk loading feels unresponsive when moving fast
-    (observation: if player moves out of loaded range, incorrect chunks are marked for removal, this might explain remove assert VAO != 0 failure)
-    (observation 2: loader tells renderer to remove chunks with meshes with size 0 and there is a lot of then, m_loaded_meshes is problematic because it stores all (also 0 size meshes))
-    solution: use the goddamn member "empty" of m_loaded_meshes to check if mesh really needs to be removed
-* frustum culling sometimes removes too many chunks
-* why is sometimes an outer ring loading and leawing empty space between?
-
-    ********
-   *        *
-  *   ****   *
-  *  ******  *
-  *  ******  *
-  *   ****   *
-   *        *
-    ********
+* refactoring desperately needed (when all the basic ideas are implemented)

@@ -64,6 +64,8 @@ World::World() :
             i2.offset_n = 0;
         }
 #endif
+        for (auto & i3 : i.mesh_statuses) i3 = Region::MStatus::UNKNOWN;
+
         i.data = nullptr;
         i.size = 0;
         i.container_size = 0;
@@ -224,6 +226,7 @@ void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
 }
 
 //==============================================================================
+[[deprecated]]
 World::MeshCache::Status World::getMeshStatus(const iVec3 mesh_position)
 {
     const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
@@ -263,6 +266,7 @@ void World::loadRegionNew(const iVec3 region_position)
 
         file.read(reinterpret_cast<char *>(&region.size), sizeof(region.size));
         file.read(reinterpret_cast<char *>(region.metas.begin()), sizeof(region.metas));
+        file.read(reinterpret_cast<char *>(region.mesh_statuses.begin()), sizeof(region.mesh_statuses));
 
         if (region.size > 0)
         {
@@ -290,6 +294,7 @@ void World::loadRegionNew(const iVec3 region_position)
         region.data = nullptr;
         region.container_size = 0;
         for (auto & i : region.metas) i = { 0, CType::NOWHERE, 0 };
+        for (auto & i : region.mesh_statuses) i = Region::MStatus::UNKNOWN;
     }
 
     region.needs_save = false;
@@ -1147,7 +1152,16 @@ void World::multiThreadMeshLoader(const int thread_id)
                 if (m_mesh_loaded[current_mesh_position] != Status::UNLOADED)
                     continue;
 
-                const auto mesh = generateMeshNew(current_mesh_position, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
+                // assert chunk ~ mesh
+                const auto region_position = floorDiv(current_mesh_position, CHUNK_REGION_SIZES);
+                auto & chunk_region = m_regions[region_position];
+                auto & mesh_status = chunk_region.mesh_statuses[current_mesh_position];
+
+                std::vector<Vertex> mesh;
+                if (mesh_status != Region::MStatus::EMPTY)
+                {
+                    mesh = generateMeshNew(current_mesh_position, /*chunk_container_size,*/ chunks.get(), chunk_positions.get());
+                }
 
                 if (mesh.size() != 0)
                 {
@@ -1169,6 +1183,14 @@ void World::multiThreadMeshLoader(const int thread_id)
                     command->mesh = mesh;
 
                     m_commands.commitPush();
+
+                    if (mesh_status == Region::MStatus::UNKNOWN)
+                        mesh_status = Region::MStatus::NON_EMPTY;
+                }
+                else
+                {
+                    if (mesh_status == Region::MStatus::UNKNOWN)
+                        mesh_status = Region::MStatus::EMPTY;
                 }
 
                 // update mesh state
@@ -1692,6 +1714,7 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
 
     file.write(reinterpret_cast<const char *>(&region.size), sizeof(region.size));
     file.write(reinterpret_cast<const char *>(region.metas.begin()), sizeof(region.metas));
+    file.write(reinterpret_cast<const char *>(region.mesh_statuses.begin()), sizeof(region.mesh_statuses));
     if (region.size > 0)
         file.write(reinterpret_cast<const char *>(region.data), region.size);
 
