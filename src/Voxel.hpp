@@ -25,6 +25,7 @@ private:
     GLint m_block_VP_matrix_location;
     GLint m_block_light_location;
     GLint m_block_lighting_location;
+    GLint m_chunk_position_location;
     Player m_player;
     TextureArray m_block_textures;
 

@@ -292,7 +292,7 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
     std::ofstream output_file{file_name, std::ofstream::trunc | std::ofstream::binary};
     output_file.write(reinterpret_cast<const char *>(m_points.data()), m_points.size() * sizeof(m_points[0]));
 }
-
+/*
     std::cout << "Final points: ---------------------------------" << std::endl;
 
     for (const auto & i : m_points)
@@ -304,5 +304,5 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
                   << " | " << std::setw(3) << square_distance(i.position(0), i.position(1), i.position(2))
                   << " | " << static_cast<int>(i.task)
                   << std::endl;
-    }
+    }*/
 }

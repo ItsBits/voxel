@@ -11,9 +11,7 @@
 #include <string>
 #include <vector>
 #include <GL/gl3w.h>
-
-// TODO: checkout other compression libraries that are faster
-#include <zlib.h>
+#include <zlib.h> // TODO: checkout other compression libraries that are faster
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -22,6 +20,7 @@
 #include <queue>
 #include "ModTable.hpp"
 #include "ThreadBarrier.hpp"
+#include "Settings.hpp"
 
 struct UniqueBarrier
 {
@@ -71,7 +70,11 @@ private:
 
 // TODO: expand
 // TODO: char instead of int position and type
+#ifdef REL_CHUNK
+struct Vertex { cVec3 position; char type; ucVec4 shaddow; };
+#else
 struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
+#endif
 
 struct Mesh { GLuint VAO; GLuint VBO; GLsizei size; };
 struct UnusedBuffer { GLuint VAO; GLuint VBO; };
@@ -107,7 +110,7 @@ public:
     World(); // TODO: refactor
     ~World(); // TODO: refactor
 
-    void draw(const iVec3 new_center, const fVec4 frustum_planes[6]);
+    void draw(const iVec3 new_center, const fVec4 frustum_planes[6], const GLint offset_uniform);
 
 private:
     //==============================================================================
@@ -115,7 +118,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 15 },
+            RDISTANCE{ 8 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },

@@ -2,7 +2,11 @@
 
 #include <cassert>
 
+#define REL_CHUNK
+
 #define SETTINGS_TARGET_FPS 150.0
+#define V_SYNC true
+#define MSAA_SAMPLES 1
 
 //==============================================================================
 template<int S>

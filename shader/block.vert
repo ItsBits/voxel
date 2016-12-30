@@ -1,12 +1,11 @@
 #version 330 core
 
-#define FLOAT_VERT
-
 layout(location = 0) in ivec3 Position;
 layout(location = 1) in int Type;
 layout(location = 2) in uvec4 AO_Color;
 
 uniform mat4 VP_matrix;
+uniform vec3 offset;
 
 out vec3 texture_coord;
 flat out vec4 ao_colors;
@@ -15,7 +14,7 @@ uniform float light;
 
 void main()
 {
-  gl_Position = VP_matrix * vec4(Position, 1.0f);
+  gl_Position = VP_matrix * vec4(vec3(Position) + offset, 1.0f);
 
   ao_colors = AO_Color / 255.0f * light;
   

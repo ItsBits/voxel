@@ -23,7 +23,7 @@ static const Texture::Filtering BLOCK_TEXTURE_FILTERING
 
 //==============================================================================
 Voxel::Voxel(const std::string & name) :
-    m_window{ Window::Hints{ 3, 1, 1, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, true, 960, 540 } },
+    m_window{ Window::Hints{ 3, 1, MSAA_SAMPLES, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, V_SYNC, 960, 540 } },
     m_block_shader{
             {
                     { "shader/block.vert", GL_VERTEX_SHADER },
@@ -45,6 +45,7 @@ Voxel::Voxel(const std::string & name) :
     glUniform1i(block_texture_array_location, 0);
     m_block_light_location = glGetUniformLocation(m_block_shader.id(), "light");
     m_block_lighting_location = glGetUniformLocation(m_block_shader.id(), "lighting");
+    m_chunk_position_location = glGetUniformLocation(m_block_shader.id(), "offset");
 
     m_text_shader.use();
     m_text_ratio_location = glGetUniformLocation(m_text_shader.id(), "ratio");
@@ -176,7 +177,7 @@ void Voxel::run()
         const auto center = m_player.getPosition();
         fVec4 frustum_planes[6];
         matrixToFrustums(VP_matrix, frustum_planes);
-        m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }), frustum_planes);
+        m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }), frustum_planes, m_chunk_position_location);
 
         // render text
         m_text_shader.use();
