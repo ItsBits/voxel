@@ -3,6 +3,7 @@
 #include <cassert>
 
 #define REL_CHUNK
+#define RANDOM_MESH_OFFSET
 
 #define SETTINGS_TARGET_FPS 150.0
 #define V_SYNC true

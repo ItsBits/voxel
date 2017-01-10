@@ -71,7 +71,7 @@ private:
 // TODO: expand
 // TODO: char instead of int position and type
 #ifdef REL_CHUNK
-struct Vertex { cVec3 position; char type; ucVec4 shaddow; };
+struct Vertex { cVec3 position; char type; ucVec4 shaddow; ucVec2 texture_offset; };
 #else
 struct Vertex { iVec3 position; int type; ucVec4 shaddow; };
 #endif

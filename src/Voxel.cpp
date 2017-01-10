@@ -17,8 +17,8 @@ static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
 };
 static const Texture::Filtering BLOCK_TEXTURE_FILTERING
 {
-        Texture::FarFiltering::LINEAR_TEXEL_LINEAR_MIPMAP,
-        Texture::CloseFiltering::LINEAR_TEXEL, 500.0f
+        Texture::FarFiltering::NEAREST_TEXEL_LINEAR_MIPMAP,
+        Texture::CloseFiltering::NEAREST_TEXEL, 1.0f // bug in mesa driver: linear interpolation does not work with anisotropy filter
 };
 
 //==============================================================================

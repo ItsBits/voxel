@@ -412,15 +412,21 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertexAO(aos[2], aos[1], aos[7])
                     } * SHADDOW_STRENGTH;
 
+#ifdef RANDOM_MESH_OFFSET
+                    const ucVec2 texture_off{ std::rand() & 240, std::rand()  & 240 }; // TODO: replace magic numbers
+#else
+                    const ucVec2 texture_off{ 0, 0 };
+#endif
+
 #ifdef REL_CHUNK
                     const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
                 }
 
                 // X - 1
@@ -445,15 +451,21 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertexAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
+#ifdef RANDOM_MESH_OFFSET
+                    const ucVec2 texture_off{ std::rand() & 240, std::rand()  & 240 };
+#else
+                    const ucVec2 texture_off{ 0, 0 };
+#endif
+
 #ifdef REL_CHUNK
                     const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result, texture_off });
                 }
 
                 // Y + 1
@@ -478,15 +490,21 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertexAO(aos[0], aos[3], aos[5])
                     } * SHADDOW_STRENGTH;
 
+#ifdef RANDOM_MESH_OFFSET
+                    const ucVec2 texture_off{ std::rand() & 240, std::rand()  & 240 };
+#else
+                    const ucVec2 texture_off{ 0, 0 };
+#endif
+
 #ifdef REL_CHUNK
                     const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
                 }
 
                 // Y - 1
@@ -511,15 +529,21 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertexAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
+#ifdef RANDOM_MESH_OFFSET
+                    const ucVec2 texture_off{ std::rand() & 240, std::rand()  & 240 };
+#else
+                    const ucVec2 texture_off{ 0, 0 };
+#endif
+
 #ifdef REL_CHUNK
                     const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
                 }
 
                 // Z + 1
@@ -544,15 +568,21 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertexAO(aos[2], aos[3], aos[6])
                     } * SHADDOW_STRENGTH;
 
+#ifdef RANDOM_MESH_OFFSET
+                    const ucVec2 texture_off{ std::rand() & 240, std::rand()  & 240 };
+#else
+                    const ucVec2 texture_off{ 0, 0 };
+#endif
+
 #ifdef REL_CHUNK
                     const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result, texture_off });
                 }
 
                 // Z - 1
@@ -577,15 +607,21 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                             vertexAO(aos[0], aos[3], aos[5])
                     } * SHADDOW_STRENGTH;
 
+#ifdef RANDOM_MESH_OFFSET
+                    const ucVec2 texture_off{ std::rand() & 240, std::rand()  & 240 };
+#else
+                    const ucVec2 texture_off{ 0, 0 };
+#endif
+
 #ifdef REL_CHUNK
                     const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result, texture_off });
+                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result, texture_off });
                 }
             }
 
@@ -644,13 +680,16 @@ void World::simplex2DChunkNew(Block * destination, const iVec3 from_block, const
                 if (res * 5.0f > y_position)
                 {
                     auto random_value = std::rand() % 16;
-
+#if 0
+                    block = Block{ 3 };
+#else
                     if (random_value < 3)
                         block = Block{ 3 };
                     else if (random_value < 11)
                         block = Block{ 2 };
                     else
                         block = Block{ 1 };
+#endif
                 }
                 else
                     block = Block{ 0 };
@@ -1004,9 +1043,11 @@ void World::executeRendererCommands(const int max_command_count)
                     glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));
 #endif
                     glVertexAttribIPointer(2, 4, GL_UNSIGNED_BYTE, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position) + sizeof(Vertex::type)));
+                    glVertexAttribIPointer(3, 2, GL_UNSIGNED_BYTE, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position) + sizeof(Vertex::type) + sizeof(Vertex::shaddow)));
                     glEnableVertexAttribArray(0);
                     glEnableVertexAttribArray(1);
                     glEnableVertexAttribArray(2);
+                    glEnableVertexAttribArray(3);
 
                     glBindVertexArray(0);
                 }
