@@ -1,7 +1,7 @@
 #version 330 core
 
 layout(location = 0) in ivec3 Position;
-layout(location = 1) in int Type;
+layout(location = 1) in uint Type;
 layout(location = 2) in uvec4 AO_Color;
 
 uniform mat4 VP_matrix;

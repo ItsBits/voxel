@@ -101,7 +101,7 @@ struct Command
 
 struct MeshWPos { Mesh mesh; iVec3 position; };
 
-enum class WorldType { SINE, SMALL_BLOCK, FLOOR, SIMPLEX_2D, EMPTY };
+enum class WorldType { SINE, SMALL_BLOCK, FLOOR, SIMPLEX_2D, MC_RIP, EMPTY };
 
 //==============================================================================
 class World
@@ -118,7 +118,7 @@ private:
 
     // only edit following line / no need to tinker with the rest
     static constexpr int
-            RDISTANCE{ 8 },
+            RDISTANCE{ 20 },
             REDISTANCE{ RDISTANCE * 2 },
             CSIZE{ 16 },
             MSIZE{ 16 },
@@ -164,7 +164,7 @@ private:
     static constexpr int COMMAND_BUFFER_SIZE{ 128 };
     static constexpr int SLEEP_MS{ 300 };
     static constexpr int STALL_SLEEP_MS{ 50 };
-    static constexpr int MAX_COMMANDS_PER_FRAME{ 16 }; // TODO: dynamic based on time left
+    static constexpr int MAX_COMMANDS_PER_FRAME{ 32 }; // TODO: dynamic based on time left
     static constexpr unsigned char SHADDOW_STRENGTH{ 60 };
 
     static_assert(MAX_COMMANDS_PER_FRAME > 0, "Can't do anything without command execution.");
@@ -309,6 +309,8 @@ private:
     void emptyChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block);
     void smallBlockChunk(const iVec3 from_block, const iVec3 to_block);
     void floorTilesChunk(const iVec3 from_block, const iVec3 to_block);
+
+    void ripMC(Block * destination, const iVec3 from_block, const iVec3 to_block);
 
     // shared functions
     static bool inRange(const iVec3 center, const iVec3 position, const int max_square_distance);

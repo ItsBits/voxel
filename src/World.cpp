@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <glm/gtc/noise.hpp>
 
+#include "McRip.hpp"
+
 static constexpr iVec3 INITIAL_CENTER_CHUNK{ 0, 0, 0 };
 
 //==============================================================================
@@ -391,7 +393,10 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                 if (block.isEmpty()) continue;
 
                 // X + 1
-                if (blockGet({ position(0) + 1, position(1), position(2) }).isEmpty())
+                const auto & blk_xp = blockGet({ position(0) + 1, position(1), position(2) });
+                const unsigned char blk_xpu = blk_xp.get(); // quick dirty hack because integer promotion
+                // TODO: use a bit (maybe sign) for translucent objects
+                if (blk_xp.isEmpty() || blk_xp.get() == 0x12 || blk_xpu == 0xA1)
                 {
                     const bool aos[8]{
                             !blockGet({ position(0) + 1, position(1) - 1, position(2)     }).isEmpty(),
@@ -424,7 +429,9 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                 }
 
                 // X - 1
-                if (blockGet({ position(0) - 1, position(1), position(2) }).isEmpty())
+                const auto & blk_xm = blockGet({ position(0) - 1, position(1), position(2) });
+                const unsigned char blk_xmu = blk_xm.get();
+                if (blk_xm.isEmpty() || blk_xm.get() == 0x12 || blk_xmu == 0xA1)
                 {
                     const bool aos[8]{
                             !blockGet({ position(0) - 1, position(1) - 1, position(2)     }).isEmpty(),
@@ -457,7 +464,9 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                 }
 
                 // Y + 1
-                if (blockGet({ position(0), position(1) + 1, position(2) }).isEmpty())
+                const auto & blk_yp = blockGet({ position(0), position(1) + 1, position(2) });
+                const unsigned char blk_ypu = blk_yp.get();
+                if (blk_yp.isEmpty() || blk_yp.get() == 0x12 || blk_ypu == 0xA1)
                 {
                     const bool aos[8]{
                             !blockGet({ position(0) - 1, position(1) + 1, position(2)     }).isEmpty(),
@@ -490,7 +499,9 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                 }
 
                 // Y - 1
-                if (blockGet({ position(0), position(1) - 1, position(2) }).isEmpty())
+                const auto & blk_ym = blockGet({ position(0), position(1) - 1, position(2) });
+                const unsigned char blk_ymu = blk_ym.get();
+                if (/*position(1) != 0 &&*/ blk_ym.isEmpty() || blk_ym.get() == 0x12 || blk_ymu == 0xA1)
                 {
                     const bool aos[8]{
                             !blockGet({ position(0) - 1, position(1) - 1, position(2)     }).isEmpty(),
@@ -523,7 +534,9 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                 }
 
                 // Z + 1
-                if (blockGet({ position(0), position(1), position(2) + 1 }).isEmpty())
+                const auto & blk_zp = blockGet({ position(0), position(1), position(2) + 1 });
+                const unsigned char blk_zpu = blk_zp.get();
+                if (blk_zp.isEmpty() || blk_zp.get() == 0x12 || blk_zpu == 0xA1)
                 {
                     const bool aos[8]{
                             !blockGet({ position(0) - 1, position(1)    , position(2) + 1 }).isEmpty(),
@@ -556,7 +569,9 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                 }
 
                 // Z - 1
-                if (blockGet({ position(0), position(1), position(2) - 1 }).isEmpty())
+                const auto & blk_zm = blockGet({ position(0), position(1), position(2) - 1 });
+                const unsigned char blk_zmu = blk_zm.get();
+                if (blk_zm.isEmpty() || blk_zm.get() == 0x12 || blk_zmu == 0xA1)
                 {
                     const bool aos[8]{
                             !blockGet({ position(0) - 1, position(1)    , position(2) - 1 }).isEmpty(),
@@ -611,8 +626,40 @@ void World::generateChunkNew(Block *destination, const iVec3 from_block, const i
         case WorldType::SINE: sineChunkNew(destination, from_block, to_block); break;
         case WorldType::SIMPLEX_2D: simplex2DChunkNew(destination, from_block, to_block); break;
         case WorldType::EMPTY: emptyChunkNew(destination, from_block, to_block); break;
+        case WorldType::MC_RIP: ripMC(destination, from_block, to_block); break;
         default: throw "Not implemented."; break;
     }
+}
+
+// oh got remove that
+std::mutex s_lock;
+//==============================================================================
+void World::ripMC(Block * destination, const iVec3 from_block, const iVec3 to_block)
+{
+    assert(all(floorMod(from_block, CHUNK_SIZES) == iVec3{ 0, 0, 0 }) && "Only MC compatible format supported. Supporting other formats is too much work :S.");
+    if   (!all(floorMod(from_block, CHUNK_SIZES) == iVec3{ 0, 0, 0 }))
+    {
+        std::cout << "ripMC: 1\n";
+        throw 1;
+    }
+    assert(all((to_block - from_block) == iVec3{ 16, 16, 16 }) && "Only MC compatible format supported. Supporting other formats is too much work :S.");
+    if  (!(all((to_block - from_block) == iVec3{ 16, 16, 16 })))
+    {
+        std::cout << "ripMC: 2\n";
+        throw 2;
+    }
+
+
+    const auto chunk_position = floorDiv(from_block, CHUNK_SIZES);
+
+    s_lock.lock();
+    const auto chunk_blocks = ShittyCodeForReadingMinecraft::getChunkData(
+        { chunk_position(0), chunk_position(1), chunk_position(2) },
+        MC_SAVE_FILE_LOC
+    );
+    s_lock.unlock();
+
+    std::memcpy(destination, chunk_blocks.get(), 4096);
 }
 
 //==============================================================================
@@ -844,7 +891,8 @@ void World::multiThreadMeshLoader(const int thread_id)
 
                 if (chunk_meta.loc == CType::NOWHERE)
                 {
-                    generateChunkNew(container.get(), from, to, WorldType::SIMPLEX_2D);
+                    //generateChunkNew(container.get(), from, to, WorldType::SIMPLEX_2D);
+                    generateChunkNew(container.get(), from, to, WorldType::MC_RIP);
                     saveChunkToRegionNew(container.get(), chunk_position);
                 }
             }
@@ -916,7 +964,7 @@ void World::multiThreadMeshLoader(const int thread_id)
 
                 m_iterator_index = 0;
 
-                std::this_thread::sleep_for(std::chrono::seconds(3)); // TODO: replace with condition variable, that signals when the need to start workers exists
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // TODO: replace with condition variable, that signals when the need to start workers exists
 
                 m_barrier.wait();
             }
@@ -998,7 +1046,7 @@ void World::executeRendererCommands(const int max_command_count)
                     QuadEBO::bind();
 #ifdef REL_CHUNK
                     glVertexAttribIPointer(0, 3, GL_BYTE, sizeof(Vertex), (GLvoid *) (0));
-                    glVertexAttribIPointer(1, 1, GL_BYTE, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));
+                    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));
 #else
                     glVertexAttribIPointer(0, 3, GL_INT, sizeof(Vertex), (GLvoid *) (0));
                     glVertexAttribIPointer(1, 1, GL_INT, sizeof(Vertex), (GLvoid *) (sizeof(Vertex::position)));

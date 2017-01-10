@@ -1,3 +1,5 @@
+* TODO: find the source of exception : replace exceptions with assertions
+
 * rename to: OverengineeredVoxelEngine :P
 
 * multi threaded loader for loading new meshes

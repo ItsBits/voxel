@@ -4,9 +4,14 @@
 
 #define REL_CHUNK
 
-#define SETTINGS_TARGET_FPS 150.0
+#define SETTINGS_TARGET_FPS 300.0
 #define V_SYNC true
-#define MSAA_SAMPLES 1
+#define MSAA_SAMPLES 0
+#define RESOLUTION_X 1280
+#define RESOLUTION_Y 720
+
+#define MC_TEXTURE_LOC   nullptr // c-string folder location
+#define MC_SAVE_FILE_LOC nullptr // c-string folder location
 
 //==============================================================================
 template<int S>

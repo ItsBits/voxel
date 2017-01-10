@@ -22,5 +22,7 @@ void main()
 
   vec4 color_t = texture(block_texture_array, texture_coord);
 
+  if (color_t.a < 0.9f) discard;
+
   color = vec4(vec3(color_t.r, color_t.g, color_t.b) * interpolated_shade * lighting, color_t.a);
 }

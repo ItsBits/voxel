@@ -14,5 +14,5 @@ public:
 
 private:
   signed char m_type;
-  
+
 };

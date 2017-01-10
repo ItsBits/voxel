@@ -21,16 +21,70 @@ static const Texture::Filtering BLOCK_TEXTURE_FILTERING
         Texture::CloseFiltering::LINEAR_TEXEL, 500.0f
 };
 
+static const Texture::Filtering MC_BLOCK_TEXTURE_FILTERING
+{
+    Texture::FarFiltering::NEAREST_TEXEL_LINEAR_MIPMAP,
+    Texture::CloseFiltering::NEAREST_TEXEL, 0.0f // mesa-driver bug: can not have anisotropy filtering and nearest texel interpolation at the same time (works on windows though)
+};
+
+//==============================================================================
+std::vector<TextureArray::Source> readMCBlocks()
+{
+    const std::string info_file_location{ "assets/mc_blocks.txt" };
+    const std::string texture_folder_location{ MC_TEXTURE_LOC };
+    const std::string texture_file_suffix{ ".png" };
+    const std::string missing_texture{ "assets/missing_16.png" };
+
+    std::vector<TextureArray::Source> data;
+
+    std::ifstream info{ info_file_location };
+
+    while(!info.eof())
+    {
+        GLsizei i{ -1 };
+        std::string name{ "dummy_lalala" };
+
+        info >> std::hex >> i;
+        info >> name;
+
+        if (i == -1 || name == std::string{ "dummy_lalala" })
+            break;
+
+        data.push_back({ texture_folder_location + name + texture_file_suffix, i });
+    }
+
+    for (GLsizei i = 0; i < 256; ++i)
+    {
+        bool exists = false;
+
+        for (const auto & e : data)
+        {
+            if (e.index == i)
+            {
+                exists = true;
+                break;
+            }
+        }
+
+        if (exists) continue;
+
+        data.push_back({ missing_texture, i });
+    }
+
+    return data;
+}
+
 //==============================================================================
 Voxel::Voxel(const std::string & name) :
-    m_window{ Window::Hints{ 3, 1, MSAA_SAMPLES, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, V_SYNC, 960, 540 } },
+    m_window{ Window::Hints{ 3, 1, MSAA_SAMPLES, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, V_SYNC, RESOLUTION_X, RESOLUTION_Y } },
     m_block_shader{
             {
                     { "shader/block.vert", GL_VERTEX_SHADER },
                     { "shader/block.frag", GL_FRAGMENT_SHADER }
             }
     },
-    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, BLOCK_TEXTURE_FILTERING, GL_CLAMP_TO_EDGE }, // TODO: make dynamic texture unit allocation
+//    m_block_textures{ BLOCK_TEXTURE_SOURCE, 64, GL_TEXTURE0, MC_BLOCK_TEXTURE_FILTERING, GL_CLAMP_TO_EDGE }, // TODO: make dynamic texture unit allocation
+    m_block_textures{ readMCBlocks(), 16, GL_TEXTURE0, MC_BLOCK_TEXTURE_FILTERING, GL_CLAMP_TO_EDGE }, // TODO: make dynamic texture unit allocation
     m_text_shader{
             {
                     { "shader/text.vert", GL_VERTEX_SHADER },
