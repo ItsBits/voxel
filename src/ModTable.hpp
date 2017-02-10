@@ -1,7 +1,7 @@
 #pragma once
 
 #include <type_traits>
-#include "TinyAlgebra.hpp"
+#include "Algebra.hpp"
 
 // TODO: alternative: get a Vec<T, S> as input instead of raw dimension sizes
 //==============================================================================
@@ -10,7 +10,7 @@ class ModTable
 {
     static_assert(std::is_integral<I>::value, "Iterator must be an integral.");
     static_assert(sizeof...(D) > 0, "Table can not have 0 dimensions.");
-    static_assert(largerZero(Vec<I, sizeof...(D)>{ D ... }), "Each dimension size must be bigger than 0.");
+    static_assert(larger_zero(Vec<I, sizeof...(D)>{ D ... }), "Each dimension size must be bigger than 0.");
 
 public:
     const T & operator[](Vec<I, sizeof...(D)> position) const;
@@ -23,7 +23,7 @@ public:
 private:
     static constexpr Vec<I, sizeof...(D)> DIMENSIONS{ D ... };
 
-    T m_table[product(DIMENSIONS)];
+    T m_table[product_constexpr(DIMENSIONS)];
 
 };
 
@@ -35,7 +35,7 @@ constexpr Vec<I, sizeof...(D)> ModTable<T, I, D ...>::DIMENSIONS;
 template<typename T, typename I, I ... D>
 const T & ModTable<T, I, D ...>::operator[](Vec<I, sizeof...(D)> position) const
 {
-    const auto position_index = positionToIndex(position, DIMENSIONS);
+    const auto position_index = position_to_index(position, DIMENSIONS);
 
     return m_table[position_index];
 }

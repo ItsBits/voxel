@@ -11,24 +11,24 @@
 #include <stdlib.h>
 #include <glm/gtc/noise.hpp>
 
-static constexpr iVec3 INITIAL_CENTER_CHUNK{ 0, 0, 0 };
+static constexpr i32Vec3 INITIAL_CENTER_CHUNK{ 0, 0, 0 };
 
 //==============================================================================
 constexpr char World::WORLD_ROOT[];
 constexpr char World::MESH_CACHE_ROOT[];
-constexpr iVec3 World::CHUNK_SIZES;
-constexpr iVec3 World::CHUNK_CONTAINER_SIZES;
-constexpr iVec3 World::CHUNK_REGION_CONTAINER_SIZES;
-constexpr iVec3 World::MESH_REGION_CONTAINER_SIZES;
-constexpr iVec3 World::MESH_REGION_SIZES;
-constexpr iVec3 World::CHUNK_REGION_SIZES;
+constexpr i32Vec3 World::CHUNK_SIZES;
+constexpr i32Vec3 World::CHUNK_CONTAINER_SIZES;
+constexpr i32Vec3 World::CHUNK_REGION_CONTAINER_SIZES;
+constexpr i32Vec3 World::MESH_REGION_CONTAINER_SIZES;
+constexpr i32Vec3 World::MESH_REGION_SIZES;
+constexpr i32Vec3 World::CHUNK_REGION_SIZES;
 constexpr int World::MESH_BORDER_REQUIRED_SIZE;
 constexpr int World::REGION_DATA_SIZE_FACTOR;
 constexpr unsigned char World::SHADDOW_STRENGTH;
-constexpr iVec3 World::MESH_CONTAINER_SIZES;
-constexpr iVec3 World::MESH_SIZES;
-constexpr iVec3 World::MESH_OFFSETS;
-constexpr iVec3 World::chunk_container_size;
+constexpr i32Vec3 World::MESH_CONTAINER_SIZES;
+constexpr i32Vec3 World::MESH_SIZES;
+constexpr i32Vec3 World::MESH_OFFSETS;
+constexpr i32Vec3 World::chunk_container_size;
 constexpr int World::SLEEP_MS;
 constexpr int World::STALL_SLEEP_MS;
 
@@ -119,7 +119,7 @@ World::~World()
         {
             first_deelete_that = false;
 
-            if (all(region.position == iVec3{ 1, 0, 0 }))
+            if (all(region.position == i32Vec3{ 1, 0, 0 }))
                 continue;
             else
 #ifdef NEW_REGION_FORMAT
@@ -130,7 +130,7 @@ World::~World()
         }
         else
         {
-            if (!all(region.position == iVec3{ 0, 0, 0 }))
+            if (!all(region.position == i32Vec3{ 0, 0, 0 }))
 #ifdef NEW_REGION_FORMAT
                 saveRegionToDriveNew(region.position);
 #else
@@ -153,7 +153,7 @@ World::~World()
         }
         else
         {
-            if (all(mesh_cache.position == iVec3{ 0, 0, 0 }))
+            if (all(mesh_cache.position == i32Vec3{ 0, 0, 0 }))
                 saveMeshCacheToDrive(mesh_cache, { 1, 0, 0 });
             else
                 saveMeshCacheToDrive(mesh_cache, mesh_cache.position);
@@ -197,7 +197,7 @@ World::~World()
 }
 
 //==============================================================================
-void World::loadRegionNew(const iVec3 region_position)
+void World::loadRegionNew(const i32Vec3 region_position)
 {
     auto & region = m_regions[region_position];
 
@@ -208,12 +208,12 @@ void World::loadRegionNew(const iVec3 region_position)
     if (region.needs_save)
         saveRegionToDriveNew(region.position);
 
-    const std::string file_name = WORLD_ROOT + toString(region_position);
+    const std::string file_name = WORLD_ROOT + to_string(region_position);
     std::ifstream file{ file_name, std::ifstream::binary };
 
     if (file.good())
     {
-        Debug::print("Loading region ", toString(region_position));
+        Debug::print("Loading region ", to_string(region_position));
 
         // get rid of old data
         std::free(region.data);
@@ -258,13 +258,13 @@ void World::loadRegionNew(const iVec3 region_position)
 }
 
 //==============================================================================
-void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * const chunk, iVec3 * const chunk_container_meta)
+void World::loadChunkToChunkContainerNew(const i32Vec3 chunk_position, Block * const chunk, i32Vec3 * const chunk_container_meta)
 {
     // if already loaded
     if (all(*chunk_container_meta == chunk_position))
         return;
 
-    const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+    const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
     auto & chunk_region = m_regions[region_position];
     assert(all(chunk_region.position == region_position) && "Assuming that correct region is already loaded.");
 
@@ -324,7 +324,7 @@ void World::loadChunkToChunkContainerNew(const iVec3 chunk_position, Block * con
 }
 
 //==============================================================================
-std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iVec3 chunk_container_size,*/ Block * const chunks, iVec3 * const chunk_metas)
+std::vector<Vertex> World::generateMeshNew(const i32Vec3 mesh_position, /*const i32Vec3 chunk_container_size,*/ Block * const chunks, i32Vec3 * const chunk_metas)
 {
     const auto from_block = mesh_position * CHUNK_SIZES + MESH_OFFSETS;
     const auto to_block = from_block + CHUNK_SIZES;
@@ -333,17 +333,17 @@ std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iV
 
     assert(all(from_block < to_block) && "From values must be lower than to values.");
 
-    const auto chunk_position_from = floorDiv(from_block, CHUNK_SIZES);
-    const auto chunk_position_to = floorDiv(to_block - 1, CHUNK_SIZES);
+    const auto chunk_position_from = floor_div(from_block, CHUNK_SIZES);
+    const auto chunk_position_to = floor_div(to_block - 1, CHUNK_SIZES);
 
-    iVec3 position;
+    i32Vec3 position;
 
-    for (position(2) = chunk_position_from(2); position(2) <= chunk_position_to(2); ++position(2))
-        for (position(1) = chunk_position_from(1); position(1) <= chunk_position_to(1); ++position(1))
-            for (position(0) = chunk_position_from(0); position(0) <= chunk_position_to(0); ++position(0))
+    for (position[2] = chunk_position_from[2]; position[2] <= chunk_position_to[2]; ++position[2])
+        for (position[1] = chunk_position_from[1]; position[1] <= chunk_position_to[1]; ++position[1])
+            for (position[0] = chunk_position_from[0]; position[0] <= chunk_position_to[0]; ++position[0])
             {
                 //loadChunkToChunkContainer(position);
-                const auto index = positionToIndex(position, chunk_container_size) * CHUNK_SIZE;
+                const auto index = position_to_index(position, chunk_container_size) * CHUNK_SIZE;
                 auto * this_chunk = chunks + index;
                 auto * this_chunk_meta = chunk_metas + index;
 
@@ -354,14 +354,14 @@ std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iV
     {
     public:
         Getttter(const Block * const w) : worldd{ w } {}
-        // TODO: fix this positionToIndex is not the correct function (more processing of block_position needed. See getBlock() )
-        const Block & operator () (const iVec3 block_position)
+        // TODO: fix this position_to_index is not the correct function (more processing of block_position needed. See getBlock() )
+        const Block & operator () (const i32Vec3 block_position)
         {
 
-            const auto block_index = positionToIndex(block_position, World::CHUNK_SIZES);
+            const auto block_index = position_to_index(block_position, World::CHUNK_SIZES);
 
-            const auto chunk_position = floorDiv(block_position, World::CHUNK_SIZES);
-            const auto chunk_index = positionToIndex(chunk_position, World::chunk_container_size);
+            const auto chunk_position = floor_div(block_position, World::CHUNK_SIZES);
+            const auto chunk_index = position_to_index(chunk_position, World::chunk_container_size);
 
             return worldd[chunk_index * World::CHUNK_SIZE + block_index];
         }
@@ -377,35 +377,35 @@ std::vector<Vertex> World::generateMeshNew(const iVec3 mesh_position, /*const iV
 
 //==============================================================================
 template<typename GetBlock>
-std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_block, GetBlock blockGet)
+std::vector<Vertex> World::generateMesh(const i32Vec3 from_block, const i32Vec3 to_block, GetBlock blockGet)
 {
-    iVec3 position;
+  i32Vec3 position;
     std::vector<Vertex> mesh;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
             {
                 auto block = blockGet(position);
 
                 if (block.isEmpty()) continue;
 
                 // X + 1
-                if (blockGet({ position(0) + 1, position(1), position(2) }).isEmpty())
+                if (blockGet({ position[0] + 1, position[1], position[2] }).isEmpty())
                 {
                     const bool aos[8]{
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1)    , position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1)    , position(2) + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1]    , position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1]    , position[2] + 1 }).isEmpty(),
 
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2) - 1 }).isEmpty()
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2] - 1 }).isEmpty()
                     };
 
-                    const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
+                    const u8Vec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - u8Vec4{
                             vertexAO(aos[0], aos[3], aos[5]),
                             vertexAO(aos[2], aos[3], aos[6]),
                             vertexAO(aos[0], aos[1], aos[4]),
@@ -413,32 +413,33 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     } * SHADDOW_STRENGTH;
 
 #ifdef REL_CHUNK
-                    const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
+                    const auto vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES);
+                    //const i8Vec3 vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES); <= TODO: should be casted to char vector
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1]    , vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1]    , vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1] + 1, vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1] + 1, vert_pos[2] + 1 }, block.get(), ao_result });
                 }
 
                 // X - 1
-                if (blockGet({ position(0) - 1, position(1), position(2) }).isEmpty())
+                if (blockGet({ position[0] - 1, position[1], position[2] }).isEmpty())
                 {
                     const bool aos[8]{
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1)    , position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1)    , position(2) + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1]    , position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1]    , position[2] + 1 }).isEmpty(),
 
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2) - 1 }).isEmpty()
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2] - 1 }).isEmpty()
                     };
 
-                    const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
+                    const u8Vec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - u8Vec4{
                             vertexAO(aos[0], aos[1], aos[4]),
                             vertexAO(aos[2], aos[1], aos[7]),
                             vertexAO(aos[0], aos[3], aos[5]),
@@ -446,32 +447,32 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     } * SHADDOW_STRENGTH;
 
 #ifdef REL_CHUNK
-                    const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
+                    const auto vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1]    , vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1]    , vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1] + 1, vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1] + 1, vert_pos[2]     }, block.get(), ao_result });
                 }
 
                 // Y + 1
-                if (blockGet({ position(0), position(1) + 1, position(2) }).isEmpty())
+                if (blockGet({ position[0], position[1] + 1, position[2] }).isEmpty())
                 {
                     const bool aos[8]{
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) + 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) + 1, position(2) + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] + 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] + 1, position[2] + 1 }).isEmpty(),
 
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2) - 1 }).isEmpty()
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2] - 1 }).isEmpty()
                     };
 
-                    const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
+                    const u8Vec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - u8Vec4{
                             vertexAO(aos[2], aos[1], aos[7]),
                             vertexAO(aos[2], aos[3], aos[6]),
                             vertexAO(aos[0], aos[1], aos[4]),
@@ -479,32 +480,32 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     } * SHADDOW_STRENGTH;
 
 #ifdef REL_CHUNK
-                    const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
+                    const auto vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1] + 1, vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1] + 1, vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1] + 1, vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1] + 1, vert_pos[2] + 1 }, block.get(), ao_result });
                 }
 
                 // Y - 1
-                if (blockGet({ position(0), position(1) - 1, position(2) }).isEmpty())
+                if (blockGet({ position[0], position[1] - 1, position[2] }).isEmpty())
                 {
                     const bool aos[8]{
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) - 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2)     }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) - 1, position(2) + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] - 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2]     }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] - 1, position[2] + 1 }).isEmpty(),
 
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2) - 1 }).isEmpty()
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2] - 1 }).isEmpty()
                     };
 
-                    const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
+                    const u8Vec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - u8Vec4{
                             vertexAO(aos[0], aos[1], aos[4]),
                             vertexAO(aos[0], aos[3], aos[5]),
                             vertexAO(aos[2], aos[1], aos[7]),
@@ -512,32 +513,32 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     } * SHADDOW_STRENGTH;
 
 #ifdef REL_CHUNK
-                    const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
+                    const auto vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1]    , vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1]    , vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1]    , vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1]    , vert_pos[2] + 1 }, block.get(), ao_result });
                 }
 
                 // Z + 1
-                if (blockGet({ position(0), position(1), position(2) + 1 }).isEmpty())
+                if (blockGet({ position[0], position[1], position[2] + 1 }).isEmpty())
                 {
                     const bool aos[8]{
-                            !blockGet({ position(0) - 1, position(1)    , position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) - 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1)    , position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) + 1, position(2) + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1]    , position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] - 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1]    , position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] + 1, position[2] + 1 }).isEmpty(),
 
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2) + 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2) + 1 }).isEmpty()
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2] + 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2] + 1 }).isEmpty()
                     };
 
-                    const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
+                    const u8Vec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - u8Vec4{
                             vertexAO(aos[0], aos[1], aos[4]),
                             vertexAO(aos[0], aos[3], aos[5]),
                             vertexAO(aos[2], aos[1], aos[7]),
@@ -545,32 +546,32 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     } * SHADDOW_STRENGTH;
 
 #ifdef REL_CHUNK
-                    const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
+                    const auto vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2) + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1]    , vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1]    , vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1] + 1, vert_pos[2] + 1 }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1] + 1, vert_pos[2] + 1 }, block.get(), ao_result });
                 }
 
                 // Z - 1
-                if (blockGet({ position(0), position(1), position(2) - 1 }).isEmpty())
+                if (blockGet({ position[0], position[1], position[2] - 1 }).isEmpty())
                 {
                     const bool aos[8]{
-                            !blockGet({ position(0) - 1, position(1)    , position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) - 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1)    , position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0)    , position(1) + 1, position(2) - 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1]    , position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] - 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1]    , position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0]    , position[1] + 1, position[2] - 1 }).isEmpty(),
 
-                            !blockGet({ position(0) - 1, position(1) - 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) - 1, position(1) + 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) + 1, position(2) - 1 }).isEmpty(),
-                            !blockGet({ position(0) + 1, position(1) - 1, position(2) - 1 }).isEmpty()
+                            !blockGet({ position[0] - 1, position[1] - 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] - 1, position[1] + 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] + 1, position[2] - 1 }).isEmpty(),
+                            !blockGet({ position[0] + 1, position[1] - 1, position[2] - 1 }).isEmpty()
                     };
 
-                    const ucVec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - ucVec4{
+                    const u8Vec4 ao_result = static_cast<unsigned char>(UCHAR_MAX) - u8Vec4{
                             vertexAO(aos[2], aos[1], aos[7]),
                             vertexAO(aos[2], aos[3], aos[6]),
                             vertexAO(aos[0], aos[1], aos[4]),
@@ -578,14 +579,14 @@ std::vector<Vertex> World::generateMesh(const iVec3 from_block, const iVec3 to_b
                     } * SHADDOW_STRENGTH;
 
 #ifdef REL_CHUNK
-                    const auto vert_pos = floorMod(position - MESH_OFFSETS, MESH_SIZES);
+                    const auto vert_pos = floor_mod(position - MESH_OFFSETS, MESH_SIZES);
 #else
                     const auto vert_pos = position;
 #endif
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1)    , vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0)    , vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
-                    mesh.push_back({ { vert_pos(0) + 1, vert_pos(1) + 1, vert_pos(2)     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1]    , vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1]    , vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0]    , vert_pos[1] + 1, vert_pos[2]     }, block.get(), ao_result });
+                    mesh.push_back({ { vert_pos[0] + 1, vert_pos[1] + 1, vert_pos[2]     }, block.get(), ao_result });
                 }
             }
 
@@ -604,7 +605,7 @@ unsigned char World::vertexAO(const bool side_a, const bool side_b, const bool c
 }
 
 //==============================================================================
-void World::generateChunkNew(Block *destination, const iVec3 from_block, const iVec3 to_block, const WorldType world_type)
+void World::generateChunkNew(Block *destination, const i32Vec3 from_block, const i32Vec3 to_block, const WorldType world_type)
 {
     switch(world_type)
     {
@@ -616,30 +617,30 @@ void World::generateChunkNew(Block *destination, const iVec3 from_block, const i
 }
 
 //==============================================================================
-void World::emptyChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block)
+void World::emptyChunkNew(Block * destination, const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    iVec3 position;
+    i32Vec3 position;
     int i = 0;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
                 destination[i++] = Block{ 0 };
 }
 
 //==============================================================================
-void World::simplex2DChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block)
+void World::simplex2DChunkNew(Block * destination, const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    iVec3 position;
+    i32Vec3 position;
     int i = 0;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
             {
                 auto & block = destination[i++];
-                const glm::vec2 f_position{ position(0), position(2) };
-                const float y_position = position(1);
+                const glm::vec2 f_position{ position[0], position[2] };
+                const float y_position = position[1];
                 const auto res = glm::simplex(f_position * 0.03f);
                 if (res * 5.0f > y_position)
                 {
@@ -659,18 +660,18 @@ void World::simplex2DChunkNew(Block * destination, const iVec3 from_block, const
 }
 
 //==============================================================================
-void World::sineChunkNew(Block * destination, const iVec3 from_block, const iVec3 to_block)
+void World::sineChunkNew(Block * destination, const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    iVec3 position;
+    i32Vec3 position;
     int i = 0;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
             {
                 auto & block = destination[i++];
 
-                if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
+                if (std::sin(position[0] * 0.1f) * std::sin(position[2] * 0.1f) * 10.0f > static_cast<float>(position[1]))
                 {
                     auto random_value = std::rand() % 16;
 
@@ -688,7 +689,7 @@ void World::sineChunkNew(Block * destination, const iVec3 from_block, const iVec
 }
 
 //==============================================================================
-bool World::removeOutOfRangeMeshes(const iVec3 center_mesh)
+bool World::removeOutOfRangeMeshes(const i32Vec3 center_mesh)
 {
     // remove out of range meshes
     auto count = m_loaded_meshes.size();
@@ -699,7 +700,7 @@ bool World::removeOutOfRangeMeshes(const iVec3 center_mesh)
     {
         const auto mesh_position = m_loaded_meshes[i].position;
 
-        const auto mesh_index = positionToIndex(mesh_position, MESH_CONTAINER_SIZES);
+        const auto mesh_index = position_to_index(mesh_position, MESH_CONTAINER_SIZES);
 
         if (!inRange(center_mesh, mesh_position, SQUARE_REMOVE_DISTANCE))
         {
@@ -742,8 +743,8 @@ void World::multiThreadMeshLoader(const int thread_id)
 {
     std::unique_ptr<Block[]> container{ std::make_unique<Block[]>(CHUNK_SIZE) };
     static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
-    constexpr size_t SZEE = CHUNK_SIZE * product(chunk_container_size);
-    std::unique_ptr<iVec3[]> chunk_positions{ std::make_unique<iVec3[]>(SZEE) }; // TODO: correct algorithm for determining needed size
+    constexpr size_t SZEE = CHUNK_SIZE * product_constexpr(chunk_container_size);
+    std::unique_ptr<i32Vec3[]> chunk_positions{ std::make_unique<i32Vec3[]>(SZEE) }; // TODO: correct algorithm for determining needed size
     std::unique_ptr<Block[]> chunks{ std::make_unique<Block[]>(SZEE) }; // TODO: correct algorithm for determining needed size
 
     // initialize this stuff
@@ -751,15 +752,15 @@ void World::multiThreadMeshLoader(const int thread_id)
         chunk_positions[i] = { 0, 0, 0 };
     chunk_positions[0] = { 1, 0, 0 };
 
-    iVec3 center_chunk = m_loader_center.load();
-    iVec3 center_mesh = center_chunk;
+    i32Vec3 center_chunk = m_loader_center.load();
+    i32Vec3 center_mesh = center_chunk;
 
     while (!m_quit)
     {
         auto current_index = m_iterator_index.fetch_add(1);
         auto task = m_iterator.m_points[current_index];
 
-//        Debug::print("Thread: ", thread_id, " | Task ID: ", current_index, " | Task: ", toString(task.position), " - ", static_cast<int>(task.task));
+//        Debug::print("Thread: ", thread_id, " | Task ID: ", current_index, " | Task: ", to_string(task.position), " - ", static_cast<int>(task.task));
 
         if (current_index >= m_iterator.m_points.size())
             //break;
@@ -819,14 +820,14 @@ void World::multiThreadMeshLoader(const int thread_id)
                 const auto from_chunk = ((task.position * -1) + 1) + center_chunk;
                 const auto to_chunk = task.position + center_chunk;
 
-                const auto from_region = floorDiv(from_chunk, CHUNK_REGION_SIZES);
-                const auto to_region = floorDiv(to_chunk, CHUNK_REGION_SIZES);
+                const auto from_region = floor_div(from_chunk, CHUNK_REGION_SIZES);
+                const auto to_region = floor_div(to_chunk, CHUNK_REGION_SIZES);
 
-                iVec3 position;
+                i32Vec3 position;
 
-                for (position(2) = from_region(2); position(2) <= to_region(2); ++position(2))
-                    for (position(1) = from_region(1); position(1) <= to_region(1); ++position(1))
-                        for (position(0) = from_region(0); position(0) <= to_region(0); ++position(0))
+                for (position[2] = from_region[2]; position[2] <= to_region[2]; ++position[2])
+                    for (position[1] = from_region[1]; position[1] <= to_region[1]; ++position[1])
+                        for (position[0] = from_region[0]; position[0] <= to_region[0]; ++position[0])
                             loadRegionNew(position);
 
                 m_barrier.wait();
@@ -834,11 +835,11 @@ void World::multiThreadMeshLoader(const int thread_id)
             break;
             case SphereIterator<RDISTANCE, THREAD_COUNT>::Task::GENERATE_CHUNK:
             {
-                const iVec3 chunk_position{ task.position + center_chunk }; // warning when copy pasting center_chunk and center_mesh
-                const iVec3 from{ chunk_position * CHUNK_SIZES };
-                const iVec3 to{ from + CHUNK_SIZES };
+                const i32Vec3 chunk_position{ task.position + center_chunk }; // warning when copy pasting center_chunk and center_mesh
+                const i32Vec3 from{ chunk_position * CHUNK_SIZES };
+                const i32Vec3 to{ from + CHUNK_SIZES };
 
-                const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+                const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
                 const auto & chunk_region = m_regions[region_position];
                 const auto & chunk_meta = chunk_region.metas[chunk_position];
 
@@ -861,7 +862,7 @@ void World::multiThreadMeshLoader(const int thread_id)
                     continue;
 
                 // assert chunk ~ mesh
-                const auto region_position = floorDiv(current_mesh_position, CHUNK_REGION_SIZES);
+                const auto region_position = floor_div(current_mesh_position, CHUNK_REGION_SIZES);
                 auto & chunk_region = m_regions[region_position];
                 auto & mesh_status = chunk_region.mesh_statuses[current_mesh_position];
 
@@ -888,7 +889,7 @@ void World::multiThreadMeshLoader(const int thread_id)
                     }
 
                     command->type = Command::Type::UPLOAD;
-                    command->index = positionToIndex(current_mesh_position, MESH_CONTAINER_SIZES);
+                    command->index = position_to_index(current_mesh_position, MESH_CONTAINER_SIZES);
                     command->position = current_mesh_position;
                     command->mesh = mesh;
 
@@ -941,9 +942,9 @@ void World::multiThreadMeshLoader(const int thread_id)
 }
 
 //==============================================================================
-bool World::inRange(const iVec3 center, const iVec3 position, const int max_square_distance)
+bool World::inRange(const i32Vec3 center, const i32Vec3 position, const int max_square_distance)
 {
-    const iVec3 distances = position - center;
+    const i32Vec3 distances = position - center;
 
     const int square_distance = dot(distances, distances);
 
@@ -1038,15 +1039,15 @@ void World::executeRendererCommands(const int max_command_count)
 }
 
 //==============================================================================
-void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6], const GLint offset_uniform)
+void World::draw(const i32Vec3 new_center, const f32Vec4 frustum_planes[6], const GLint offset_uniform)
 {
-    const auto center_mesh = floorDiv(new_center - MESH_OFFSETS, MESH_SIZES);
+    const auto center_mesh = floor_div(new_center - MESH_OFFSETS, MESH_SIZES);
     const auto old_center_mesh = m_center_mesh.exchange(center_mesh);
 
     if (!all(old_center_mesh == center_mesh))
     {
-        //std::cout << "Old: " << toString(old_center_mesh) << std::endl;
-        //std::cout << "New: " << toString(center_mesh) << std::endl;
+        //std::cout << "Old: " << to_string(old_center_mesh) << std::endl;
+        //std::cout << "New: " << to_string(center_mesh) << std::endl;
         m_moved_center_mesh = true;
     }
 
@@ -1071,7 +1072,7 @@ void World::draw(const iVec3 new_center, const fVec4 frustum_planes[6], const GL
         assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and/or VBO not loaded.");
 #ifdef REL_CHUNK
         const auto & pos = m.data.position * MESH_SIZES + MESH_OFFSETS;
-        glUniform3f(offset_uniform, static_cast<float>(pos(0)), static_cast<float>(pos(1)), static_cast<float>(pos(2)));
+        glUniform3f(offset_uniform, static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2]));
 #endif
         glBindVertexArray(mesh_data.VAO);
         glDrawElements(GL_TRIANGLES, mesh_data.size, QuadEBO::type(), 0);
@@ -1103,10 +1104,10 @@ void World::exitLoaderThread()
 }
 
 //==============================================================================
-bool World::meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset)
+bool World::meshInFrustum(const f32Vec4 planes[6], const i32Vec3 mesh_offset)
 {
-    const fVec3 from{ static_cast<float>(mesh_offset(0)), static_cast<float>(mesh_offset(1)), static_cast<float>(mesh_offset(2)) };
-    const fVec3 to{ from + fVec3{ static_cast<float>(MESH_SIZES(0)), static_cast<float>(MESH_SIZES(1)), static_cast<float>(MESH_SIZES(2)) } };
+    const f32Vec3 from{ static_cast<float>(mesh_offset[0]), static_cast<float>(mesh_offset[1]), static_cast<float>(mesh_offset[2]) };
+    const f32Vec3 to{ from + f32Vec3{ static_cast<float>(MESH_SIZES[0]), static_cast<float>(MESH_SIZES[1]), static_cast<float>(MESH_SIZES[2]) } };
 
     // TODO: there are faster algorithms
     for (auto i = 0; i < 6; ++i)
@@ -1122,21 +1123,21 @@ bool World::meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset)
 
         // https://sites.google.com/site/letsmakeavoxelengine/home/frustum-culling
 
-        if (dot(planes[i], fVec4{ from(0), from(1), from(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ from[0], from[1], from[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ from(0), from(1), to(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ from[0], from[1], to[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ from(0), to(1), from(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ from[0], to[1], from[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ from(0), to(1), to(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ from[0], to[1], to[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ to(0), from(1), from(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ to[0], from[1], from[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ to(0), from(1), to(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ to[0], from[1], to[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ to(0), to(1), from(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ to[0], to[1], from[2], 1 }) < 0.0f) ++out;
         else ++in;
-        if (dot(planes[i], fVec4{ to(0), to(1), to(2), 1 }) < 0.0f) ++out;
+        if (dot(planes[i], f32Vec4{ to[0], to[1], to[2], 1 }) < 0.0f) ++out;
         else ++in;
 
         // If all corners are out
@@ -1148,9 +1149,9 @@ bool World::meshInFrustum(const fVec4 planes[6], const iVec3 mesh_offset)
 }
 
 //==============================================================================
-void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_position)
+void World::saveChunkToRegionNew(const Block * const source, const i32Vec3 chunk_position)
 {
-    const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+    const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
     auto & region = m_regions[region_position];
 
     std::unique_lock<std::mutex> lock{ region.write_lock }; // TODO: figure something out. this lock is serializing too much. compress2() is probably taking a lot of time
@@ -1205,7 +1206,7 @@ void World::saveChunkToRegionNew(const Block * const source, const iVec3 chunk_p
 }
 
 //==============================================================================
-void World::saveRegionToDriveNew(const iVec3 region_position)
+void World::saveRegionToDriveNew(const i32Vec3 region_position)
 {
     //const
     auto & region = m_regions[region_position];
@@ -1215,17 +1216,17 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
 
     assert(all(region.position == region_position) && "Chunk was probably never initialized. Control flow should have never reached this.");
 
-    const auto from_chunk = region_position * CHUNK_REGION_SIZES; // opposite of floorDiv( ... , ... )
+    const auto from_chunk = region_position * CHUNK_REGION_SIZES; // opposite of floor_div( ... , ... )
     const auto to_chunk = from_chunk + CHUNK_REGION_SIZES;
 
-    iVec3 position;
+    i32Vec3 position;
     std::size_t total_size_of_chunks_in_memory{ 0 };
     std::vector<ChunkMeta *> to_save; // TODO: flat preallocated array instead of vector
 
     // find out what chunks need to be saved
-    for (position(2) = from_chunk(2); position(2) <= to_chunk(2); ++position(2))
-        for (position(1) = from_chunk(1); position(1) <= to_chunk(1); ++position(1))
-            for (position(0) = from_chunk(0); position(0) <= to_chunk(0); ++position(0))
+    for (position[2] = from_chunk[2]; position[2] <= to_chunk[2]; ++position[2])
+        for (position[1] = from_chunk[1]; position[1] <= to_chunk[1]; ++position[1])
+            for (position[0] = from_chunk[0]; position[0] <= to_chunk[0]; ++position[0])
             {
                 auto & chunk_meta = region.metas[position];
                 if (chunk_meta.loc == CType::MEMORY)
@@ -1267,10 +1268,10 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
     assert(all(region_position == region.position) && "Trying to save invalid region.");
 
     // save region
-    Debug::print("Saving region ", toString(region.position));
+    Debug::print("Saving region ", to_string(region.position));
     assert((region.size == 0 && region.data == nullptr || region.size > 0 && region.data != nullptr) && "Data structure is broken.");
 
-    const std::string file_name = WORLD_ROOT + toString(region.position);
+    const std::string file_name = WORLD_ROOT + to_string(region.position);
     std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
     file.write(reinterpret_cast<const char *>(&region.size), sizeof(region.size));
@@ -1285,7 +1286,7 @@ void World::saveRegionToDriveNew(const iVec3 region_position)
 /*
 //==============================================================================
 [[deprecated]]
-void World::saveRegionToDriveOld(const iVec3 region_position)
+void World::saveRegionToDriveOld(const i32Vec3 region_position)
 {
     const auto & region = m_regions[region_position];
 
@@ -1296,10 +1297,10 @@ void World::saveRegionToDriveOld(const iVec3 region_position)
     assert(all(region_position == region.position) && "Trying to save invalid region.");
 
     // save region
-    Debug::print("Saving region ", toString(region.position));
+    Debug::print("Saving region ", to_string(region.position));
     assert((region.size == 0 && region.data == nullptr || region.size > 0 && region.data != nullptr) && "Data structure is broken.");
 
-    const std::string file_name = WORLD_ROOT + toString(region.position);
+    const std::string file_name = WORLD_ROOT + to_string(region.position);
     std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
     file.write(reinterpret_cast<const char *>(&region.size), sizeof(region.size));
@@ -1312,7 +1313,7 @@ void World::saveRegionToDriveOld(const iVec3 region_position)
 
 //==============================================================================
 [[deprecated]]
-void World::saveMeshCacheToDrive(const iVec3 mesh_cache_position)
+void World::saveMeshCacheToDrive(const i32Vec3 mesh_cache_position)
 {
     const auto & mesh_cache = m_mesh_caches[mesh_cache_position];
 
@@ -1323,10 +1324,10 @@ void World::saveMeshCacheToDrive(const iVec3 mesh_cache_position)
     assert(all(mesh_cache_position == mesh_cache.position) && "Trying to save invalid mesh cache.");
 
     // save mesh cache
-    Debug::print("Saving mesh cache ", toString(mesh_cache.position));
+    Debug::print("Saving mesh cache ", to_string(mesh_cache.position));
     assert((mesh_cache.size == 0 && mesh_cache.data == nullptr || mesh_cache.size > 0 && mesh_cache.data != nullptr) && "Data structure is broken.");
 
-    const std::string file_name = MESH_CACHE_ROOT + toString(mesh_cache.position);
+    const std::string file_name = MESH_CACHE_ROOT + to_string(mesh_cache.position);
     std::ofstream file{ file_name, std::ofstream::out | std::ofstream::binary | std::ofstream::trunc };
 
     file.write(reinterpret_cast<const char *>(&mesh_cache.size), sizeof(mesh_cache.size));
@@ -1339,11 +1340,11 @@ void World::saveMeshCacheToDrive(const iVec3 mesh_cache_position)
 
 //==============================================================================
 [[deprecated]]
-void World::saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Vertex> & mesh)
+void World::saveMeshToMeshCache(const i32Vec3 mesh_position, const std::vector<Vertex> & mesh)
 {
     const auto new_status = mesh.size() == 0 ? MeshCache::Status::EMPTY : MeshCache::Status::NON_EMPTY;
 
-    const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
+    const auto mesh_cache_position = floor_div(mesh_position, MESH_REGION_SIZES);
     auto & mesh_cache = m_mesh_caches[mesh_cache_position];
 
     // load correct mesh cache
@@ -1395,9 +1396,9 @@ void World::saveMeshToMeshCache(const iVec3 mesh_position, const std::vector<Ver
 
 //==============================================================================
 [[deprecated]]
-std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
+std::vector<Vertex> World::loadMesh(const i32Vec3 mesh_position)
 {
-    const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
+    const auto mesh_cache_position = floor_div(mesh_position, MESH_REGION_SIZES);
 
     const auto & mesh_cache = m_mesh_caches[mesh_cache_position];
     const auto & mesh_info = mesh_cache.infos[mesh_position];
@@ -1426,9 +1427,9 @@ std::vector<Vertex> World::loadMesh(const iVec3 mesh_position)
 
 //==============================================================================
 [[deprecated]]
-void World::saveChunkToRegionOld(const iVec3 chunk_position)
+void World::saveChunkToRegionOld(const i32Vec3 chunk_position)
 {
-    const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+    const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
     auto & region = m_regions[region_position];
 
     if (!m_chunk_statuses[chunk_position].needs_save)
@@ -1477,38 +1478,38 @@ void World::saveChunkToRegionOld(const iVec3 chunk_position)
 
 //==============================================================================
 [[deprecated]]
-Block & World::getBlock(const iVec3 block_position)
+Block & World::getBlock(const i32Vec3 block_position)
 {
-    const auto block_index = positionToIndex(block_position, CHUNK_SIZES);
+    const auto block_index = position_to_index(block_position, CHUNK_SIZES);
 
-    const auto chunk_position = floorDiv(block_position, CHUNK_SIZES);
-    const auto chunk_index = positionToIndex(chunk_position, CHUNK_CONTAINER_SIZES);
+    const auto chunk_position = floor_div(block_position, CHUNK_SIZES);
+    const auto chunk_index = position_to_index(chunk_position, CHUNK_CONTAINER_SIZES);
 
     return m_blocks[chunk_index * CHUNK_SIZE + block_index];
 }
 
 //==============================================================================
 [[deprecated]]
-void World::loadChunkRange(const iVec3 from_block, const iVec3 to_block)
+void World::loadChunkRange(const i32Vec3 from_block, const i32Vec3 to_block)
 {
     assert(all(from_block < to_block) && "From values must be lower than to values.");
 
-    const auto chunk_position_from = floorDiv(from_block, CHUNK_SIZES);
-    const auto chunk_position_to = floorDiv(to_block - 1, CHUNK_SIZES);
+    const auto chunk_position_from = floor_div(from_block, CHUNK_SIZES);
+    const auto chunk_position_to = floor_div(to_block - 1, CHUNK_SIZES);
 
-    iVec3 position;
+    i32Vec3 position;
 
-    for (position(2) = chunk_position_from(2); position(2) <= chunk_position_to(2); ++position(2))
-        for (position(1) = chunk_position_from(1); position(1) <= chunk_position_to(1); ++position(1))
-            for (position(0) = chunk_position_from(0); position(0) <= chunk_position_to(0); ++position(0))
+    for (position[2] = chunk_position_from[2]; position[2] <= chunk_position_to[2]; ++position[2])
+        for (position[1] = chunk_position_from[1]; position[1] <= chunk_position_to[1]; ++position[1])
+            for (position[0] = chunk_position_from[0]; position[0] <= chunk_position_to[0]; ++position[0])
                 loadChunkToChunkContainerOld(position);
 }
 
 //==============================================================================
 [[deprecated]]
-World::MeshCache::Status World::getMeshStatus(const iVec3 mesh_position)
+World::MeshCache::Status World::getMeshStatus(const i32Vec3 mesh_position)
 {
-    const auto mesh_cache_position = floorDiv(mesh_position, MESH_REGION_SIZES);
+    const auto mesh_cache_position = floor_div(mesh_position, MESH_REGION_SIZES);
 
     const auto & mesh_cache = m_mesh_caches[mesh_cache_position];
 
@@ -1520,7 +1521,7 @@ World::MeshCache::Status World::getMeshStatus(const iVec3 mesh_position)
 
 //==============================================================================
 [[deprecated]]
-void World::loadRegionOld(const iVec3 region_position)
+void World::loadRegionOld(const i32Vec3 region_position)
 {
     auto & region = m_regions[region_position];
 
@@ -1531,12 +1532,12 @@ void World::loadRegionOld(const iVec3 region_position)
     if (region.needs_save)
         saveRegionToDriveOld(region.position);
 
-    const std::string file_name = WORLD_ROOT + toString(region_position);
+    const std::string file_name = WORLD_ROOT + to_string(region_position);
     std::ifstream file{ file_name, std::ifstream::binary };
 
     if (file.good())
     {
-        Debug::print("Loading region ", toString(region_position));
+        Debug::print("Loading region ", to_string(region_position));
 
         // get rid of old data
         std::free(region.data);
@@ -1582,7 +1583,7 @@ void World::loadRegionOld(const iVec3 region_position)
 
 //==============================================================================
 [[deprecated]]
-void World::loadChunkToChunkContainerOld(const iVec3 chunk_position)
+void World::loadChunkToChunkContainerOld(const i32Vec3 chunk_position)
 {
     auto & chunk_status = m_chunk_statuses[chunk_position];
 
@@ -1590,7 +1591,7 @@ void World::loadChunkToChunkContainerOld(const iVec3 chunk_position)
     if (all(chunk_status.position == chunk_position))
         return;
 
-    const auto region_position = floorDiv(chunk_position, CHUNK_REGION_SIZES);
+    const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
     const auto & chunk_region = m_regions[region_position];
 
     // save previous chunk
@@ -1643,7 +1644,7 @@ void World::loadChunkToChunkContainerOld(const iVec3 chunk_position)
 
 //==============================================================================
 [[deprecated]]
-void World::generateChunk(const iVec3 from_block, const iVec3 to_block, const WorldType world_type)
+void World::generateChunk(const i32Vec3 from_block, const i32Vec3 to_block, const WorldType world_type)
 {
     switch(world_type)
     {
@@ -1656,64 +1657,64 @@ void World::generateChunk(const iVec3 from_block, const iVec3 to_block, const Wo
 
 //==============================================================================
 [[deprecated]]
-void World::emptyChunk(const iVec3 from_block, const iVec3 to_block)
+void World::emptyChunk(const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    iVec3 position;
+    i32Vec3 position;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
                 getBlock(position) = Block{ 0 };
 }
 
 //==============================================================================
 [[deprecated]]
-void World::floorTilesChunk(const iVec3 from_block, const iVec3 to_block)
+void World::floorTilesChunk(const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    const iVec3 chunk_position = floorMod(floorDiv(from_block, CHUNK_SIZES), iVec3{ 2, 2, 2 });
-    const bool even_chunk = static_cast<bool>(chunk_position(0) ^ chunk_position(2));
+    const i32Vec3 chunk_position = floor_mod(floor_div(from_block, CHUNK_SIZES), i32Vec3{ 2, 2, 2 });
+    const bool even_chunk = static_cast<bool>(chunk_position[0] ^ chunk_position[2]);
 
-    iVec3 position;
+    i32Vec3 position;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
-                getBlock(position) = position(1) > 0 ? Block{ 0 } : even_chunk ? Block{ 1 } : Block{ 2 };
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
+                getBlock(position) = position[1] > 0 ? Block{ 0 } : even_chunk ? Block{ 1 } : Block{ 2 };
 }
 
 //==============================================================================
 [[deprecated]]
-void World::smallBlockChunk(const iVec3 from_block, const iVec3 to_block)
+void World::smallBlockChunk(const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    iVec3 position;
+    i32Vec3 position;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
                 getBlock(position) = Block{ 0 };
 
-    const iVec3 new_from_block = from_block + CHUNK_SIZES / 2 - 2;
-    const iVec3 new_to_block = from_block + CHUNK_SIZES / 2 + 2;
+    const i32Vec3 new_from_block = from_block + CHUNK_SIZES / 2 - 2;
+    const i32Vec3 new_to_block = from_block + CHUNK_SIZES / 2 + 2;
 
-    for (position(2) = new_from_block(2); position(2) < new_to_block(2); ++position(2))
-        for (position(1) = new_from_block(1); position(1) < new_to_block(1); ++position(1))
-            for (position(0) = new_from_block(0); position(0) < new_to_block(0); ++position(0))
+    for (position[2] = new_from_block[2]; position[2] < new_to_block[2]; ++position[2])
+        for (position[1] = new_from_block[1]; position[1] < new_to_block[1]; ++position[1])
+            for (position[0] = new_from_block[0]; position[0] < new_to_block[0]; ++position[0])
                 getBlock(position) = Block{ 1 };
 }
 
 //==============================================================================
 [[deprecated]]
-void World::sineChunk(const iVec3 from_block, const iVec3 to_block)
+void World::sineChunk(const i32Vec3 from_block, const i32Vec3 to_block)
 {
-    iVec3 position;
+    i32Vec3 position;
 
-    for (position(2) = from_block(2); position(2) < to_block(2); ++position(2))
-        for (position(1) = from_block(1); position(1) < to_block(1); ++position(1))
-            for (position(0) = from_block(0); position(0) < to_block(0); ++position(0))
+    for (position[2] = from_block[2]; position[2] < to_block[2]; ++position[2])
+        for (position[1] = from_block[1]; position[1] < to_block[1]; ++position[1])
+            for (position[0] = from_block[0]; position[0] < to_block[0]; ++position[0])
             {
                 auto & block = getBlock(position);
 
-                if (std::sin(position(0) * 0.1f) * std::sin(position(2) * 0.1f) * 10.0f > static_cast<float>(position(1)))
+                if (std::sin(position[0] * 0.1f) * std::sin(position[2] * 0.1f) * 10.0f > static_cast<float>(position[1]))
                 {
                     auto random_value = std::rand() % 16;
 
@@ -1740,7 +1741,7 @@ void World::meshLoader()
 
         m_moved_center_mesh = false; // reset flag
 
-        const iVec3 center_mesh = m_center_mesh.load();
+        const i32Vec3 center_mesh = m_center_mesh.load();
 
         bool buffer_stall = !removeOutOfRangeMeshes(center_mesh);
 
@@ -1802,7 +1803,7 @@ void World::meshLoader()
                 if (mesh.size() > 0)
                 {
                     command->type = Command::Type::UPLOAD;
-                    command->index = positionToIndex(current_mesh_position, MESH_CONTAINER_SIZES);
+                    command->index = position_to_index(current_mesh_position, MESH_CONTAINER_SIZES);
                     command->position = current_mesh_position;
                     command->mesh = mesh;
                     m_commands.commitPush();
@@ -1838,7 +1839,7 @@ void World::meshLoader()
 
 //==============================================================================
 [[deprecated]]
-void World::loadMeshCache(const iVec3 mesh_cache_position)
+void World::loadMeshCache(const i32Vec3 mesh_cache_position)
 {
     auto & mesh_cache = m_mesh_caches[mesh_cache_position];
 
@@ -1849,12 +1850,12 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
     if (mesh_cache.needs_save)
         saveMeshCacheToDrive(mesh_cache.position);
 
-    const std::string file_name = MESH_CACHE_ROOT + toString(mesh_cache_position);
+    const std::string file_name = MESH_CACHE_ROOT + to_string(mesh_cache_position);
     std::ifstream file{ file_name, std::ifstream::binary };
 
     if (file.good())
     {
-        Debug::print("Loading mesh cache ", toString(mesh_cache_position));
+        Debug::print("Loading mesh cache ", to_string(mesh_cache_position));
 
         // get rid of old data
         std::free(mesh_cache.data);
@@ -1898,7 +1899,7 @@ void World::loadMeshCache(const iVec3 mesh_cache_position)
 
 //==============================================================================
 [[deprecated]]
-std::vector<Vertex> World::generateMeshOld(const iVec3 from_block, const iVec3 to_block)
+std::vector<Vertex> World::generateMeshOld(const i32Vec3 from_block, const i32Vec3 to_block)
 {
     loadChunkRange(from_block - MESH_BORDER_REQUIRED_SIZE, to_block + MESH_BORDER_REQUIRED_SIZE);
     return generateMesh(from_block, to_block, BlockGetter{ this });

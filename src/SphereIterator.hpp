@@ -9,7 +9,7 @@
 #include <fstream>
 
 
-#include "TinyAlgebra.hpp"
+#include "Algebra.hpp"
 #include "TinyAlgebraExtensions.hpp"
 
 // TODO: refactor
@@ -21,10 +21,10 @@ public:
     SphereIterator();
 
     enum class Task : int { SYNC = 0, LAST_SYNC_AND_LOAD_REGION = 1, GENERATE_CHUNK = 2, GENERATE_MESH = 3, END_MARKER = 4 };
-    struct Job { iVec3 position; Task task; };
+    struct Job { i32Vec3 position; Task task; };
     std::vector<Job> m_points;
     std::vector<Job> m_points_tmp;
-    std::vector<iVec3> m_chunk_generation_list;
+    std::vector<i32Vec3> m_chunk_generation_list;
 
 private:
     struct Node
@@ -158,7 +158,7 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
         if (i.task == Task::SYNC)
         {
             m_chunk_generation_list.push_back(
-                i.position + iVec3{1337, 1337, 1337}); // TODO: dummy please replace by SYNC
+                i.position + i32Vec3{1337, 1337, 1337}); // TODO: dummy please replace by SYNC
 
             /*
              * gen chunks, sync, gen meshes,
@@ -170,9 +170,9 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
             static_assert(SYNC_REPETITIONS > 0, "Can't have no sync.");
 
             for (int32_t x = 0; x < SYNC_REPETITIONS - 1; ++x)
-                m_points.push_back({iVec3{0, 0, 0}, Task::SYNC});
+                m_points.push_back({i32Vec3{0, 0, 0}, Task::SYNC});
 
-            m_points.push_back({iVec3{0, 0, 0}, Task::LAST_SYNC_AND_LOAD_REGION});
+            m_points.push_back({i32Vec3{0, 0, 0}, Task::LAST_SYNC_AND_LOAD_REGION});
 
             m_points.insert(m_points.end(), relevant_meshes.begin(), relevant_meshes.end());
 
@@ -183,29 +183,29 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
             // TODO: use correct algorithm for determining dependencies
             // here is assumed that mesh_size == chunk_size AND mesh_offset < chunk_size AND mesh_offset > 0
 
-            auto r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{0, 0, 0}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{0, 0, 0}}, Task::GENERATE_CHUNK});
+            auto r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{0, 0, 0}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{0, 0, 0}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{0, 0, 1}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{0, 0, 1}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{0, 0, 1}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{0, 0, 1}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{0, 1, 0}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{0, 1, 0}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{0, 1, 0}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{0, 1, 0}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{0, 1, 1}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{0, 1, 1}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{0, 1, 1}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{0, 1, 1}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{1, 0, 0}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{1, 0, 0}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{1, 0, 0}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{1, 0, 0}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{1, 0, 1}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{1, 0, 1}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{1, 0, 1}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{1, 0, 1}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{1, 1, 0}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{1, 1, 0}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{1, 1, 0}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{1, 1, 0}}, Task::GENERATE_CHUNK});
 
-            r = insert_if_unique(m_chunk_generation_list, iVec3{i.position + iVec3{1, 1, 1}});
-            if (r) relevant_chunks.push_back(Job{iVec3{i.position + iVec3{1, 1, 1}}, Task::GENERATE_CHUNK});
+            r = insert_if_unique(m_chunk_generation_list, i32Vec3{i.position + i32Vec3{1, 1, 1}});
+            if (r) relevant_chunks.push_back(Job{i32Vec3{i.position + i32Vec3{1, 1, 1}}, Task::GENERATE_CHUNK});
 
             relevant_meshes.push_back(i);
         }
@@ -225,17 +225,17 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
     for (const auto &i : m_points)
     {
         std::cout << std::setw(10)
-                  << std::setw(4) << i.position(0)
-                  << std::setw(4) << i.position(1)
-                  << std::setw(4) << i.position(2)
-                  << " | " << std::setw(3) << square_distance(i.position(0), i.position(1), i.position(2))
+                  << std::setw(4) << i.position[0]
+                  << std::setw(4) << i.position[1]
+                  << std::setw(4) << i.position[2]
+                  << " | " << std::setw(3) << square_distance(i.position[0], i.position[1], i.position[2])
                   << " | " << static_cast<int>(i.task)
                   << std::endl;
     }
 
     // setup region ranges
-    iVec3 min_range{0, 0, 0};
-    iVec3 max_range{0, 0, 0};
+    i32Vec3 min_range{0, 0, 0};
+    i32Vec3 max_range{0, 0, 0};
     std::size_t last_sync_index = 0;
     std::size_t y = 0;
 
@@ -263,14 +263,14 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
             // TODO: finish correct algorithm for determining dependencies
             const auto tmp = abs(min_range - 1);
             const auto r = all(tmp == max_range);
-            const auto s = all(max_range >= iVec3{0, 0, 0});
+            const auto s = all(max_range >= i32Vec3{0, 0, 0});
             assert(r && "Not sure if this is a bug. Must select absolute max if not the same.");
             assert(s && "Max must be positive.");
 
             m_points[last_sync_index].position = max_range;
 
-            min_range = iVec3{0, 0, 0};
-            max_range = iVec3{0, 0, 0};
+            min_range = i32Vec3{0, 0, 0};
+            max_range = i32Vec3{0, 0, 0};
             last_sync_index = x;
         } else if (i.task == Task::SYNC)
         {
@@ -282,8 +282,8 @@ SphereIterator<RADIUS, SYNC_REPETITIONS>::SphereIterator() // TODO: move templat
     }
 
     for (int32_t x = 0; x < SYNC_REPETITIONS - 1; ++x)
-        m_points.push_back({iVec3{0, 0, 0}, Task::SYNC});
-    m_points.push_back({iVec3{0, 0, 0}, Task::END_MARKER});
+        m_points.push_back({i32Vec3{0, 0, 0}, Task::SYNC});
+    m_points.push_back({i32Vec3{0, 0, 0}, Task::END_MARKER});
 
 
     int dummy = 0;

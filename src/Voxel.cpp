@@ -121,13 +121,13 @@ void Voxel::run()
 
 #if 1
             const auto pos = m_player.getPosition();
-            const auto int_pos = intFloor(fVec3{ pos.x, pos.y, pos.z });
+            const auto int_pos = int_floor(f32Vec3{ pos.x, pos.y, pos.z });
             const auto current_settings = m_settings.current();
             const auto current_settings_val = m_settings.getInt(current_settings);
             m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)) + "\n" +
-                                 std::to_string(int_pos(0)) + "|" +
-                                 std::to_string(int_pos(1)) + "|" +
-                                 std::to_string(int_pos(2)) + "\n" +
+                                 std::to_string(int_pos[0]) + "|" +
+                                 std::to_string(int_pos[1]) + "|" +
+                                 std::to_string(int_pos[2]) + "\n" +
                                  "Settings:" + std::to_string(current_settings) + " => " + std::to_string(current_settings_val)
             );
 #else // demo
@@ -145,7 +145,7 @@ void Voxel::run()
 
         updateSettings();
 
-        const auto scroll = Mouse::getScrollMovement()(1);
+        const auto scroll = Mouse::getScrollMovement()[1];
         if (scroll > 0.1) m_window.unlockMouse();
         else if (scroll < -0.1) m_window.lockMouse();
 
@@ -175,9 +175,9 @@ void Voxel::run()
         glUniform3f(m_block_lighting_location, r, g, b);
 
         const auto center = m_player.getPosition();
-        fVec4 frustum_planes[6];
+        f32Vec4 frustum_planes[6];
         matrixToFrustums(VP_matrix, frustum_planes);
-        m_world.draw(intFloor(fVec3{ center.x, center.y, center.z }), frustum_planes, m_chunk_position_location);
+        m_world.draw(int_floor(f32Vec3{ center.x, center.y, center.z }), frustum_planes, m_chunk_position_location);
 
         // render text
         m_text_shader.use();

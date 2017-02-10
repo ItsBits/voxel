@@ -3,7 +3,7 @@
 #include <cassert>
 #include <vector>
 
-#include "TinyAlgebra.hpp"
+#include "Algebra.hpp"
 
 //==================================================================================================
 Text::Text()
@@ -47,7 +47,7 @@ void Text::draw() const
 //==================================================================================================
 void Text::update(const std::string & text)
 {
-    std::vector<ucVec3> out_text;
+    std::vector<u8Vec3> out_text;
 
     GLubyte pos{ 0 };
     GLubyte line{ 0 };

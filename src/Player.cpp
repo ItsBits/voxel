@@ -54,7 +54,7 @@ void Player::updateFacingDirection()
   const auto movement = Mouse::getPointerMovement();
 
   const glm::vec2 offset{
-     glm::vec2{ movement(0), - movement(1) } / INVERSE_MOUSE_SENSITIVITY
+     glm::vec2{ movement[0], - movement[1] } / INVERSE_MOUSE_SENSITIVITY
   };
 
   m_yaw += offset.x;
