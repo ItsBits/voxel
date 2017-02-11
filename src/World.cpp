@@ -170,7 +170,7 @@ World::~World()
     const auto * end = m_meshes.end();
     for (; i != end; ++i) // TODO: range based for
     {
-        auto & mesh_data = i->data.mesh;
+        auto & mesh_data = i->mesh;
 
         // only both equal to 0 or both not equal to 0 is valid
         if (mesh_data.VAO == 0 && mesh_data.VBO == 0) continue;
@@ -967,7 +967,7 @@ void World::executeRendererCommands(const int max_command_count)
         {
             case Command::Type::REMOVE:
             {
-                const auto & mesh_data = m_meshes.get(command->index)->data.mesh;
+                const auto & mesh_data = m_meshes.get_entry(command->index).mesh;
 #if 1
                 assert(mesh_data.VBO && mesh_data.VAO && "Should not be 0.");
                 m_unused_buffers.push({ mesh_data.VAO, mesh_data.VBO });
@@ -975,7 +975,7 @@ void World::executeRendererCommands(const int max_command_count)
                 glDeleteBuffers(1, &mesh_data.VBO);
                 glDeleteVertexArrays(1, &mesh_data.VAO);
 #endif
-                m_meshes.del(command->index);
+                m_meshes.delete_entry(command->index);
             }
             break;
             case Command::Type::UPLOAD:
@@ -1021,7 +1021,7 @@ void World::executeRendererCommands(const int max_command_count)
                 const auto EBO_size = static_cast<int>((command->mesh.size() >> 1) + command->mesh.size());
                 QuadEBO::resize(EBO_size);
 
-                m_meshes.add(command->index, { { VAO, VBO, EBO_size }, command->position });
+                m_meshes.add_entry(command->index, { { VAO, VBO, EBO_size }, command->position });
 
                 // this does not deallocate and popping command queue does not call destructor
                 command->mesh.clear();
@@ -1063,15 +1063,15 @@ void World::draw(const i32Vec3 new_center, const f32Vec4 frustum_planes[6], cons
 #endif
 
         // only render if in frustum
-        if (!meshInFrustum(frustum_planes, m.data.position * MESH_SIZES + MESH_OFFSETS))
+        if (!meshInFrustum(frustum_planes, m.position * MESH_SIZES + MESH_OFFSETS))
             continue;
 
-        const auto & mesh_data = m.data.mesh;
+        const auto & mesh_data = m.mesh;
 
         assert(mesh_data.size <= QuadEBO::size() && mesh_data.size > 0);
         assert(mesh_data.VAO != 0 && mesh_data.VBO != 0 && "VAO and/or VBO not loaded.");
 #ifdef REL_CHUNK
-        const auto & pos = m.data.position * MESH_SIZES + MESH_OFFSETS;
+        const auto & pos = m.position * MESH_SIZES + MESH_OFFSETS;
         glUniform3f(offset_uniform, static_cast<float>(pos[0]), static_cast<float>(pos[1]), static_cast<float>(pos[2]));
 #endif
         glBindVertexArray(mesh_data.VAO);

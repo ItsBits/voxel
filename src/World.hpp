@@ -248,7 +248,7 @@ private:
     // renderer thread data
     std::stack<UnusedBuffer> m_unused_buffers;
     //iVec3 m_reference_center;
-    SparseMap<MeshWPos, MESH_CONTAINER_SIZE> m_meshes;
+    SparseMap<MeshWPos, std::remove_const<decltype(MESH_CONTAINER_SIZE)>::type, MESH_CONTAINER_SIZE> m_meshes;
 
     // shared / synchronization data
     RingBufferSingleProducerSingleConsumer<Command, COMMAND_BUFFER_SIZE> m_commands;
