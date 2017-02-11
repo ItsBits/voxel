@@ -917,7 +917,7 @@ void World::multiThreadMeshLoader(const int thread_id)
 
                 m_iterator_index = 0;
 
-                std::this_thread::sleep_for(std::chrono::seconds(3)); // TODO: replace with condition variable, that signals when the need to start workers exists
+                std::this_thread::sleep_for(std::chrono::milliseconds(200)); // TODO: replace with condition variable, that signals when the need to start workers exists
 
                 m_barrier.wait();
             }

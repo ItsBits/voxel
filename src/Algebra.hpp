@@ -344,3 +344,49 @@ Vec<int, N> int_floor(const Vec<T, N> x)
 
   return r;
 }
+
+//============================================================================
+// accumulates arguments with operator operation,
+// evaluating from right to left
+template<typename O, typename T, typename ... V>
+constexpr T accumulate(const O operation, const T value)
+{ return value; }
+
+template<typename O, typename T, typename ... V>
+constexpr T accumulate(const O operation, const T value, const V...values)
+{ return operation(value, accumulate(operation, values ...)); }
+
+struct add
+{
+  constexpr auto operator () (const auto x, const auto y) const
+  { return x + y; }
+};
+
+struct multiply
+{
+  constexpr auto operator () (const auto x, const auto y) const
+  { return x * y; }
+};
+
+//============================================================================
+template<typename O, typename T, typename ... V>
+constexpr bool all_are(const O operation, const T value)
+{ return operation(value); }
+
+template<typename O, typename T, typename ... V>
+constexpr bool all_are(const O operation, const T value, const V ... values)
+{ return operation(value) && all_are(operation, values ...); }
+
+template<typename O, typename T, typename ... V>
+constexpr bool any_is(const O operation, const T value)
+{ return operation(value); }
+
+template<typename O, typename T, typename ... V>
+constexpr bool any_is(const O operation, const T value, const V ... values)
+{ return operation(value) || all_are(operation, values ...); }
+
+struct bigger_zero
+{
+  constexpr auto operator ()(const auto x) const
+  { return x > decltype(x){ 0 }; }
+};
