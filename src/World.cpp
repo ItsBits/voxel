@@ -739,6 +739,7 @@ bool World::removeOutOfRangeMeshes(const i32Vec3 center_mesh)
 
 
 //==============================================================================
+// TODO: refactor, redo synchronization
 void World::multiThreadMeshLoader(const int thread_id)
 {
     std::unique_ptr<Block[]> container{ std::make_unique<Block[]>(CHUNK_SIZE) };
@@ -757,15 +758,11 @@ void World::multiThreadMeshLoader(const int thread_id)
 
     while (!m_quit)
     {
+      //Debug::print("Thread ", thread_id, " new loop.");
         auto current_index = m_iterator_index.fetch_add(1);
-        auto task = m_iterator.m_points[current_index];
 
-//        Debug::print("Thread: ", thread_id, " | Task ID: ", current_index, " | Task: ", to_string(task.position), " - ", static_cast<int>(task.task));
-
-        if (current_index >= m_iterator.m_points.size())
-            //break;
-            throw 1;
-
+//      if (current_index > 15500)
+//      Debug::print("Thread ", thread_id, " with current_index: ", current_index);
         if (m_moved_center_mesh == true)
         {
             // gather all threads
@@ -777,6 +774,8 @@ void World::multiThreadMeshLoader(const int thread_id)
                 if (m_waiting_threads == THREAD_COUNT) break;
             }
 */
+//          if (current_index > 15500)
+//            Debug::print("Thread ", thread_id, " waiting with current_index: ", current_index);
             m_ugly_hacky_thingy.wait(m_barrier); // TODO: fix deadlock: threads can wait on this or on exit barrier and get stuck
 
             if (thread_id == 0)
@@ -804,6 +803,18 @@ void World::multiThreadMeshLoader(const int thread_id)
 
             continue;
         }
+
+      auto task = m_iterator.m_points[current_index]; // this has been moved to after "if (m_moved_center_mesh == true)" because otherwise, there is a data race. TODO: need to rework the whole thing
+
+//        Debug::print("Thread: ", thread_id, " | Task ID: ", current_index, " | Task: ", to_string(task.position), " - ", static_cast<int>(task.task));
+
+      if (current_index >= m_iterator.m_points.size())
+      {
+        Debug::print("Thread ", thread_id, " woops. Wrong iterator index.");
+        Debug::print("current_index: ", current_index, " m_iterator.m_points.size(): ", m_iterator.m_points.size());
+        //break;
+        throw 1;
+      }
 
         assert(current_index < m_iterator.m_points.size() && "Out of bounds access.");
 
@@ -930,6 +941,8 @@ void World::multiThreadMeshLoader(const int thread_id)
         }
     }
 
+  //Debug::print("Thread ", thread_id, " waiting for exit.");
+
     // mechanism for exiting worker threads
     m_exited_threads.fetch_add(1); // this works but is not reusable
     while (true)
@@ -939,6 +952,8 @@ void World::multiThreadMeshLoader(const int thread_id)
         if (m_exited_threads == THREAD_COUNT)
             break;
     }
+
+  //Debug::print("Thread ", thread_id, " exiting.");
 }
 
 //==============================================================================

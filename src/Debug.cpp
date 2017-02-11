@@ -1,3 +1,3 @@
 #include "Debug.hpp"
 
-std::mutex Debug::m_lock;
+std::mutex Debug::s_lock;

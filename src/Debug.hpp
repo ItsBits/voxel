@@ -14,22 +14,16 @@ public:
     static void printDebug(const T & val, Args && ... args)
     {
 #ifndef NDEBUG
-          printAlways(val, args ...);
-#endif
-    }
-
-private:
-    static std::mutex m_lock;
-
-    template<typename T, typename ... Args>
-    static void printAlways(const T & val, Args && ... args)
-    {
-        std::unique_lock<std::mutex> lock{ m_lock };
+        std::unique_lock<std::mutex> lock{ s_lock };
 
         std::cout << '[' << val << "] ";
         printRest(args ...);
         std::cout << std::endl;
+#endif
     }
+
+private:
+    static std::mutex s_lock;
 
     template<typename T, typename ... Args>
     static void printRest(const T & val, Args && ... args) { std::cout << val; printRest(args ...); }
