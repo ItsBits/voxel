@@ -26,11 +26,7 @@ Window::Window(const Hints & hints)
     if (gl3wInit() != 0) throw std::runtime_error("Failed to initialize GL3W.");
     if (gl3wIsSupported(hints.gl_major, hints.gl_minor) != 1) throw std::runtime_error("OpenGL " + std::to_string(hints.gl_major) + "." + std::to_string(hints.gl_minor) + " is not supported.");
 
-    // Set callbacks
-    glfwSetKeyCallback(m_window, Input::Keyboard::setKey);
-    glfwSetCursorPosCallback(m_window, Mouse::setPointer);
-    glfwSetMouseButtonCallback(m_window, Mouse::setButton);
-    glfwSetScrollCallback(m_window, Mouse::setScroll);
+    Input::setCallbacks(m_window);
 
     // Init mouse
     unlockMouse();
@@ -74,7 +70,7 @@ void Window::lockMouse()
     m_mouse_locked = true;
 
     glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    Mouse::reset(m_window);
+//    Mouse::reset(m_window); // TODO: reimplement
 }
 
 //==============================================================================

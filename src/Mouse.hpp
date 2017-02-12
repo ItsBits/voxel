@@ -1,5 +1,5 @@
 #pragma once
-
+/*
 #include "Algebra.hpp"
 
 struct GLFWwindow;
@@ -36,4 +36,4 @@ private:
   // Scroll position
   static f64Vec2 s_scroll_delta;
 
-};
+};*/

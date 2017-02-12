@@ -40,18 +40,18 @@ Player::Player(glm::vec3 position, float yaw, float pitch) :
 }
 
 //==============================================================================
-void Player::updateCameraAndItems()
+void Player::updateCameraAndItems(const Input::Mouse::Snapshot & keyboard_snapshot)
 {
-  updateFacingDirection();
+  updateFacingDirection(keyboard_snapshot);
   updateCameraRotation();
 
   //m_active_item = static_cast<int>(Mouse::getScrollPosition().y);
 }
 
 //==============================================================================
-void Player::updateFacingDirection()
+void Player::updateFacingDirection(const Input::Mouse::Snapshot & keyboard_snapshot)
 {
-  const auto movement = Mouse::getPointerMovement();
+  const auto movement = keyboard_snapshot.getPointerMovement();
 
   const glm::vec2 offset{
      glm::vec2{ movement[0], - movement[1] } / INVERSE_MOUSE_SENSITIVITY

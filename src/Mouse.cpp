@@ -1,7 +1,7 @@
 #include "Mouse.hpp"
 #include <GLFW/glfw3.h>
 #include <cassert>
-
+/*
 //==============================================================================
 Mouse::Status Mouse::s_button[Mouse::BUTTON_COUNT]{};
 
@@ -52,6 +52,13 @@ f64Vec2 Mouse::getScrollMovement()
 }
 
 //==============================================================================
+Mouse::Status Mouse::getButtonStatus(int button)
+{
+  assert(button >= 0 && button < Mouse::BUTTON_COUNT);
+  return s_button[button];
+}
+
+//==============================================================================
 void Mouse::reset(GLFWwindow * window)
 {
   s_scroll_delta = { 0.0, 0.0 };
@@ -62,11 +69,4 @@ void Mouse::reset(GLFWwindow * window)
 
   for (auto & b : s_button)
     b = Status::RELEASED;
-}
-
-//==============================================================================
-Mouse::Status Mouse::getButtonStatus(int button)
-{
-  assert(button >= 0 && button < Mouse::BUTTON_COUNT);
-  return s_button[button];
-}
+}*/

@@ -21,7 +21,7 @@ public:
     glm::vec3 getVelocity() const { return m_velocity; }
     glm::vec3 getViewDirection() const { return m_facing; }
 
-    void updateCameraAndItems();
+    void updateCameraAndItems(const Input::Mouse::Snapshot & keyboard_snapshot);
     void updateVelocity(float delta_time, const Input::Keyboard::Snapshot & keyboard_snapshot);
     void applyVelocity(float delta_time);
     void maskVelocity(glm::vec3 mask);
@@ -33,7 +33,7 @@ public:
     void updateSpeed(const float new_speed);
 
 private:
-    void updateFacingDirection();
+    void updateFacingDirection(const Input::Mouse::Snapshot & keyboard_snapshot);
     void updateCameraRotation();
 
     static const float MAX_PITCH;

@@ -144,19 +144,26 @@ void Voxel::render_loop()
 
 
         //
+        /*
         glfwPollEvents();
         const auto keyboard_snapshot = Input::Keyboard::getSnapshot();
+        const auto mouse_snapshot    = Input::Mouse::   getSnapshot();
+         */
+        Input::Keyboard::Snapshot keyboard_snapshot;
+        Input::Mouse::Snapshot mouse_snapshot;
+
+        Input::pollEventsGetSnapshots(keyboard_snapshot, mouse_snapshot);
         //
 
         updateSettings(keyboard_snapshot);
 
-        const auto scroll = Mouse::getScrollMovement()[1];
+        const auto scroll = mouse_snapshot.getScrollMovement()[1];
         if (scroll > 0.1) m_window.unlockMouse();
         else if (scroll < -0.1) m_window.lockMouse();
 
         // update position and stuff
         m_player.updateSpeed(m_settings.get(SPD_P));
-        m_player.updateCameraAndItems(); // TODO: camera should take updates as input and not get the inputs themselves
+        m_player.updateCameraAndItems(mouse_snapshot); // TODO: camera should take updates as input and not get the inputs themselves
         m_player.updateVelocity(static_cast<float>(delta_time), keyboard_snapshot);
         m_player.applyVelocity(static_cast<float>(delta_time));
         m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
