@@ -1298,6 +1298,12 @@ void World::saveRegionToDriveNew(const i32Vec3 region_position)
     if (!file.good()) std::runtime_error("Writing file failed.");
 }
 
+//==============================================================================
+void World::tick(const std::size_t tick)
+{
+    Debug::print("Tick ", tick);
+}
+
 /*
 //==============================================================================
 [[deprecated]]

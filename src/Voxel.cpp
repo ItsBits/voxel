@@ -22,7 +22,7 @@ static const Texture::Filtering BLOCK_TEXTURE_FILTERING
 };
 
 //==============================================================================
-Voxel::Voxel(const std::string & name) :
+Voxel::Voxel(const std::string & name, const std::size_t TPS) :
     m_window{ Window::Hints{ 3, 1, MSAA_SAMPLES, nullptr, name, 0.9f, 0.9f, 0.6f, 1.0f, V_SYNC, 960, 540 } },
     m_block_shader{
             {
@@ -37,7 +37,8 @@ Voxel::Voxel(const std::string & name) :
                     { "shader/text.geom", GL_GEOMETRY_SHADER },
                     { "shader/text.frag", GL_FRAGMENT_SHADER }
             }
-    }
+    },
+    m_TPS{ TPS }
 {
     m_block_shader.use();
     m_block_VP_matrix_location = glGetUniformLocation(m_block_shader.id(), "VP_matrix");
@@ -95,7 +96,7 @@ Voxel::Voxel(const std::string & name) :
 }
 
 //==============================================================================
-void Voxel::run()
+void Voxel::render_loop()
 {
     m_window.makeContextCurrent();
     m_window.unlockMouse();
@@ -105,7 +106,7 @@ void Voxel::run()
     int frame_counter = 0;
     double last_fps_update = last_time;
 
-    while (!m_window.exitRequested())
+    while (!m_window.exitRequested()) // TODO: replace by thread safe
     {
         const double current_time = glfwGetTime();
         double delta_time = current_time - last_time; // TODO: separate framerate from user input, introtuce fixed timestamp for user updates (except maybe head rotation)
@@ -151,7 +152,7 @@ void Voxel::run()
 
         // update position and stuff
         m_player.updateSpeed(m_settings.get(SPD_P));
-        m_player.updateCameraAndItems();
+        m_player.updateCameraAndItems(); // TODO: camera should take updates as input and not get the inputs themselves
         m_player.updateVelocity(static_cast<float>(delta_time));
         m_player.applyVelocity(static_cast<float>(delta_time));
         m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
@@ -219,4 +220,53 @@ void Voxel::updateSettings()
     else if (Keyboard::getKey(GLFW_KEY_S) == Keyboard::Status::PRESSED)
         m_settings.decrement();
 
+}
+
+//==============================================================================
+void Voxel::logic_loop()
+{
+    const auto time_step = std::chrono::nanoseconds{ 1'000'000'000ll / m_TPS };
+
+    auto tick_start = std::chrono::steady_clock::now();
+    auto tick = std::size_t{ 0 };
+
+    while (!m_window.exitRequested()) // TODO: replace by thread safe
+    {
+        {
+            logic_step(tick++);
+        }
+        { // timing
+            tick_start += time_step;
+            const auto end_of_simulation_time = std::chrono::steady_clock::now();
+
+            if (end_of_simulation_time < tick_start)
+                // wait for next tick
+                // TODO: compensate scheduler error
+                std::this_thread::sleep_until(tick_start);
+            else
+                // compensate lag
+                tick_start = end_of_simulation_time;
+        }
+    }
+}
+
+//==============================================================================
+void Voxel::logic_step(const std::size_t tick)
+{
+    // TODO: player movement, get render state and stuff
+    m_world.tick(tick);
+}
+
+//==============================================================================
+void Voxel::run()
+{
+    /*
+     * TODO: fix issue: all OpenGL and GLFW3 calls must happen on the main thread
+     *       should logic thread poll input state?
+     */
+    m_logic_thread = std::thread{ &Voxel::logic_loop, this };
+
+    render_loop();
+
+    m_logic_thread.join();
 }

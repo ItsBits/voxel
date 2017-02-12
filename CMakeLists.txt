@@ -31,7 +31,7 @@ set(SOURCE_FILES
         src/ThreadBarrier.hpp
         src/MemoryBlockUnit.hpp
         src/MemoryBlock.hpp
-        )
+        src/RenderState.hpp)
 
 add_executable(voxel ${SOURCE_FILES})
 

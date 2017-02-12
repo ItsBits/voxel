@@ -111,6 +111,7 @@ public:
     ~World(); // TODO: refactor
 
     void draw(const i32Vec3 new_center, const f32Vec4 frustum_planes[6], const GLint offset_uniform);
+    void tick(const std::size_t tick);
 
 private:
     //==============================================================================

@@ -8,12 +8,14 @@
 #include "Player.hpp"
 #include "TextureArray.hpp"
 #include "Text.hpp"
+#include "TripleBuffer.hpp"
+#include "RenderState.hpp"
 
 //==============================================================================
 class Voxel
 {
 public:
-    Voxel(const std::string &name);
+    Voxel(const std::string &name, const std::size_t TPS);
 
     void run();
 
@@ -49,5 +51,17 @@ private:
     };
 
     void updateSettings();
+
+    void logic_loop();
+    void logic_step(const std::size_t tick);
+    void render_loop();
+
+    std::size_t m_TPS;
+
+    std::thread m_logic_thread;
+
+    TripleBuffer m_triple_buffer;
+
+    RenderState m_render_state[3];
 
 };
