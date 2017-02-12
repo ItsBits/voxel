@@ -4,7 +4,7 @@
 #include <GL/gl3w.h>
 #include <GLFW/glfw3.h>
 #include "Mouse.hpp"
-#include "Keyboard.hpp"
+#include "Input.hpp"
 
 //==============================================================================
 Window::Window(const Hints & hints)
@@ -27,7 +27,7 @@ Window::Window(const Hints & hints)
     if (gl3wIsSupported(hints.gl_major, hints.gl_minor) != 1) throw std::runtime_error("OpenGL " + std::to_string(hints.gl_major) + "." + std::to_string(hints.gl_minor) + " is not supported.");
 
     // Set callbacks
-    glfwSetKeyCallback(m_window, Keyboard::setKey);
+    glfwSetKeyCallback(m_window, Input::Keyboard::setKey);
     glfwSetCursorPosCallback(m_window, Mouse::setPointer);
     glfwSetMouseButtonCallback(m_window, Mouse::setButton);
     glfwSetScrollCallback(m_window, Mouse::setScroll);

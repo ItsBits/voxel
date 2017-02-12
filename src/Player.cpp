@@ -8,8 +8,8 @@
 
 #include <glm/gtx/projection.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include "Keyboard.hpp"
 #include "Mouse.hpp"
+#include "Input.hpp"
 #include <GLFW/glfw3.h>
 
 template<typename T>
@@ -112,7 +112,7 @@ void Player::updateSpeed(const float new_speed)
 }
 
 //==============================================================================
-void Player::updateVelocity(float delta_time)
+void Player::updateVelocity(float delta_time, const Input::Keyboard::Snapshot & keyboard_snapshot)
 {
 #if 1
   // euler intergation
@@ -133,7 +133,7 @@ void Player::updateVelocity(float delta_time)
   const float PLAYER_STRENGTH{ 5.0f };
 
   const glm::vec3 force_to_stop{ -(m_velocity / delta_time) * mass };
-  const glm::vec3 force{ getPlayerForce(force_to_stop / PLAYER_STRENGTH) * PLAYER_STRENGTH + (m_gravitation == true ? gravitation : glm::vec3{ 0.0f }) };
+  const glm::vec3 force{ getPlayerForce(force_to_stop / PLAYER_STRENGTH, keyboard_snapshot) * PLAYER_STRENGTH + (m_gravitation == true ? gravitation : glm::vec3{ 0.0f }) };
   //const glm::vec3 force{ 1.0f,1.0f,1.0f };
   const glm::vec3 impulse{ getPlayerImpulse() };
   const glm::vec3 acceleration{ force / mass };
@@ -308,11 +308,11 @@ void Player::maskVelocity(glm::vec3 mask)
 //==============================================================================
 bool Player::getAcceleration(glm::vec3 & acceleration) const
 {
-  bool accelerating = false;
+ /* bool accelerating = false;
 
   if (Keyboard::getKey(GLFW_KEY_U) != Keyboard::getKey(GLFW_KEY_J))
   {
-    if (Keyboard::getKey(GLFW_KEY_U) == Keyboard::Status::PRESSED)
+    if (Keyboard::getKey(GLFW_KEY_U) == KeyStatus::PRESSED)
       acceleration += m_front;
     else
       acceleration -= m_front;
@@ -322,7 +322,7 @@ bool Player::getAcceleration(glm::vec3 & acceleration) const
 
   if (Keyboard::getKey(GLFW_KEY_K) != Keyboard::getKey(GLFW_KEY_H))
   {
-    if (Keyboard::getKey(GLFW_KEY_K) == Keyboard::Status::PRESSED)
+    if (Keyboard::getKey(GLFW_KEY_K) == KeyStatus::PRESSED)
       acceleration += m_right;
     else
       acceleration -= m_right;
@@ -332,7 +332,7 @@ bool Player::getAcceleration(glm::vec3 & acceleration) const
 
   if (Keyboard::getKey(GLFW_KEY_L) != Keyboard::getKey(GLFW_KEY_SPACE))
   {
-    if (Keyboard::getKey(GLFW_KEY_L) == Keyboard::Status::PRESSED)
+    if (Keyboard::getKey(GLFW_KEY_L) == KeyStatus::PRESSED)
       acceleration += Player::WORLD_UP;
     else
       acceleration -= Player::WORLD_UP;
@@ -345,17 +345,17 @@ bool Player::getAcceleration(glm::vec3 & acceleration) const
 
   // if (accelerating) acceleration = glm::normalize(acceleration);
 
-  return accelerating;
+  return accelerating;*/
 }
 //==============================================================================
-glm::vec3 Player::getPlayerForce(const glm::vec3 & force_to_stop) const
+glm::vec3 Player::getPlayerForce(const glm::vec3 & force_to_stop, const Input::Keyboard::Snapshot & keyboard_snapshot) const
 {
   glm::vec3 force{ 0.0f, 0.0f, 0.0f };
 
   //----------------------------------
-  if (Keyboard::getKey(GLFW_KEY_U) != Keyboard::getKey(GLFW_KEY_J))
+  if (keyboard_snapshot.getKey(GLFW_KEY_U) != keyboard_snapshot.getKey(GLFW_KEY_J))
   {
-    if (Keyboard::getKey(GLFW_KEY_U) == Keyboard::Status::PRESSED)
+    if (keyboard_snapshot.getKey(GLFW_KEY_U) == Input::KeyStatus::PRESSED)
       force += m_front;
     else
       force -= m_front;
@@ -381,9 +381,9 @@ glm::vec3 Player::getPlayerForce(const glm::vec3 & force_to_stop) const
     }
   }
   //----------------------------------
-  if (Keyboard::getKey(GLFW_KEY_K) != Keyboard::getKey(GLFW_KEY_H))
+  if (keyboard_snapshot.getKey(GLFW_KEY_K) != keyboard_snapshot.getKey(GLFW_KEY_H))
   {
-    if (Keyboard::getKey(GLFW_KEY_K) == Keyboard::Status::PRESSED)
+    if (keyboard_snapshot.getKey(GLFW_KEY_K) == Input::KeyStatus::PRESSED)
       force += m_right;
     else
       force -= m_right;
@@ -411,9 +411,9 @@ glm::vec3 Player::getPlayerForce(const glm::vec3 & force_to_stop) const
   //----------------------------------
   if (m_gravitation == true)
     goto EXIT;
-  if (Keyboard::getKey(GLFW_KEY_L) != Keyboard::getKey(GLFW_KEY_SPACE))
+  if (keyboard_snapshot.getKey(GLFW_KEY_L) != keyboard_snapshot.getKey(GLFW_KEY_SPACE))
   {
-    if (Keyboard::getKey(GLFW_KEY_L) == Keyboard::Status::PRESSED)
+    if (keyboard_snapshot.getKey(GLFW_KEY_L) == Input::KeyStatus::PRESSED)
       force += Player::WORLD_UP;
     else
       force -= Player::WORLD_UP;

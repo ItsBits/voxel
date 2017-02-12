@@ -9,6 +9,7 @@
 // TODO: refactor
 
 #include <glm/glm.hpp>
+#include "Input.hpp"
 
 class Player
 {
@@ -21,7 +22,7 @@ public:
     glm::vec3 getViewDirection() const { return m_facing; }
 
     void updateCameraAndItems();
-    void updateVelocity(float delta_time);
+    void updateVelocity(float delta_time, const Input::Keyboard::Snapshot & keyboard_snapshot);
     void applyVelocity(float delta_time);
     void maskVelocity(glm::vec3 mask);
 
@@ -51,7 +52,7 @@ private:
 
 
     bool getAcceleration(glm::vec3 & acceleration) const;
-    glm::vec3 getPlayerForce(const glm::vec3 & force_to_stop) const;
+    glm::vec3 getPlayerForce(const glm::vec3 & force_to_stop, const Input::Keyboard::Snapshot & keyboard_snapshot) const;
     glm::vec3 getPlayerImpulse();
 
 

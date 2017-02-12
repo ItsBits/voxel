@@ -50,7 +50,7 @@ private:
             SETTINGS_TARGET_FPS
     };
 
-    void updateSettings();
+    void updateSettings(const Input::Keyboard::Snapshot & keyboard_snapshot);
 
     void logic_loop();
     void logic_step(const std::size_t tick);

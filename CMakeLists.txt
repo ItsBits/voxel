@@ -9,7 +9,6 @@ set(SOURCE_FILES
         src/Window.cpp src/Window.hpp
         src/Mouse.cpp src/Mouse.hpp
         src/Algebra.hpp
-        src/Keyboard.cpp src/Keyboard.hpp
         src/World.cpp src/World.hpp
         src/Block.hpp
         src/QuadEBO.cpp src/QuadEBO.hpp
@@ -31,7 +30,7 @@ set(SOURCE_FILES
         src/ThreadBarrier.hpp
         src/MemoryBlockUnit.hpp
         src/MemoryBlock.hpp
-        src/RenderState.hpp)
+        src/RenderState.hpp src/BitMap.hpp src/Input.hpp src/Input.cpp)
 
 add_executable(voxel ${SOURCE_FILES})
 

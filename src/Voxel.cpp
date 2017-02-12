@@ -5,8 +5,8 @@
 #include "TinyAlgebraExtensions.hpp"
 #include "Debug.hpp"
 #include "Profiler.hpp"
-#include "Keyboard.hpp"
 #include <glm/gtx/string_cast.hpp>
+#include "Input.hpp"
 
 //==============================================================================
 static const std::vector<TextureArray::Source> BLOCK_TEXTURE_SOURCE
@@ -142,9 +142,13 @@ void Voxel::render_loop()
         }
         ++frame_counter;
 
-        glfwPollEvents();
 
-        updateSettings();
+        //
+        glfwPollEvents();
+        const auto keyboard_snapshot = Input::Keyboard::getSnapshot();
+        //
+
+        updateSettings(keyboard_snapshot);
 
         const auto scroll = Mouse::getScrollMovement()[1];
         if (scroll > 0.1) m_window.unlockMouse();
@@ -153,7 +157,7 @@ void Voxel::render_loop()
         // update position and stuff
         m_player.updateSpeed(m_settings.get(SPD_P));
         m_player.updateCameraAndItems(); // TODO: camera should take updates as input and not get the inputs themselves
-        m_player.updateVelocity(static_cast<float>(delta_time));
+        m_player.updateVelocity(static_cast<float>(delta_time), keyboard_snapshot);
         m_player.applyVelocity(static_cast<float>(delta_time));
         m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
         m_camera.update(m_player.getPosition()
@@ -205,19 +209,19 @@ void Voxel::render_loop()
 }
 
 //==============================================================================
-void Voxel::updateSettings()
+void Voxel::updateSettings(const Input::Keyboard::Snapshot & keyboard_snapshot)
 {
     // assuming number keys are consecutive (which they are in my GLFW3 version)
     for (int i = 0; i < 10; ++i)
-        if (Keyboard::getKey(GLFW_KEY_0 + i) == Keyboard::Status::PRESSED)
+        if (keyboard_snapshot.getKey(GLFW_KEY_0 + i) == Input::KeyStatus::PRESSED)
         {
             m_settings.change(i);
             break;
         }
 
-    if (Keyboard::getKey(GLFW_KEY_W) == Keyboard::Status::PRESSED)
+    if (keyboard_snapshot.getKey(GLFW_KEY_W) == Input::KeyStatus::PRESSED)
         m_settings.increment();
-    else if (Keyboard::getKey(GLFW_KEY_S) == Keyboard::Status::PRESSED)
+    else if (keyboard_snapshot.getKey(GLFW_KEY_S) == Input::KeyStatus::PRESSED)
         m_settings.decrement();
 
 }
