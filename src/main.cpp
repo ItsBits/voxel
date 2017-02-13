@@ -12,7 +12,7 @@ int main()
     Debug::print("Size of class World is ", sizeof(World) / (1024 * 1024), " MB.");
 
     {
-        std::unique_ptr<Voxel> engine{ std::make_unique<Voxel>("Voxel Test", 5) };
+        std::unique_ptr<Voxel> engine{ std::make_unique<Voxel>("Voxel Test", 10) };
 
         engine->run();
     }

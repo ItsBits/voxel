@@ -55,6 +55,7 @@ private:
     void logic_loop();
     void logic_step(const std::size_t tick);
     void render_loop();
+    void render_loop_old();
 
     std::size_t m_TPS;
 
@@ -62,6 +63,9 @@ private:
 
     TripleBuffer m_triple_buffer;
 
+    // TODO: lerp
+    // TODO: figure out initialization (renderer starts with garbage)
+    // TODO: figure out the latency and wether it can be reduced
     RenderState m_render_state[3];
 
 };
