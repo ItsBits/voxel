@@ -111,9 +111,22 @@ void Voxel::render_loop()
         const auto state_index = m_triple_buffer.consume();
         const auto current_render_state = m_render_state[state_index];
 
-        const double current_time = glfwGetTime();
+        const auto curr_time = std::chrono::steady_clock::now();
+        const double current_time = glfwGetTime(); // TODO: replace by std::chrono
         double delta_time = current_time - last_time; // TODO: separate framerate from user input, introtuce fixed timestamp for user updates (except maybe head rotation)
         last_time = current_time;
+
+//        Debug::print("Delay: ", std::chrono::duration_cast<std::chrono::milliseconds>(curr_time - current_render_state.time.end).count() / 1000.0);
+
+        const double us_delay = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(curr_time - current_render_state.time.end).count()) / 1000'000.0;
+        const double alpha = us_delay * static_cast<double>(m_TPS);
+        if (alpha > 1.0) Debug::print("Lag? Alpha:", alpha);
+
+        const auto & crs = current_render_state;
+        const auto position_lerpd = lerp_fast(crs.player.begin, crs.player.end, static_cast<float>(alpha));
+        const auto camera_lerpd = lerp_fast(f32Vec2{ crs.yaw.begin, crs.pitch.begin }, f32Vec2{ crs.yaw.end, crs.pitch.end }, static_cast<float>(alpha));
+        const auto yaw_lerpd = camera_lerpd[0];
+        const auto pitch_lerpd = camera_lerpd[1];
 
         // update FPS counter
         if (current_time - last_fps_update > 1.0 / FRAME_RATE_UPDATE_RATE)
@@ -124,8 +137,7 @@ void Voxel::render_loop()
             last_fps_update = current_time;
 
 #if 1
-            const auto pos = current_render_state.player.begin; // TODO: lerp
-            const auto int_pos = int_floor(f32Vec3{ pos[0], pos[1], pos[2] });
+            const auto int_pos = int_floor(position_lerpd);
             const auto current_settings = m_settings.current();
             const auto current_settings_val = m_settings.getInt(current_settings);
             m_screen_text.update("FPS: " + std::to_string(static_cast<int>(frame_rate + 0.5)) + "\n" +
@@ -171,12 +183,12 @@ void Voxel::render_loop()
         m_player.applyVelocity(static_cast<float>(delta_time));
 */
         m_camera.updateAspectRatio(static_cast<float>(m_window.aspectRatio()));
-        const auto & pp = current_render_state.player.begin; // TODO: lerp
+        const auto & pp = position_lerpd; // TODO: lerp
         m_camera.update(glm::vec3{ pp[0], pp[1], pp[2] }
 #if 0
           + glm::vec3{ 0, 150, 0 }
 #endif
-          , current_render_state.yaw, current_render_state.pitch); // TODO: maybe get directly instead of from render state for less latency
+          , yaw_lerpd, pitch_lerpd); // TODO: maybe get directly instead of from render state for less latency
 
         // render blocks
         m_block_shader.use();
@@ -367,10 +379,13 @@ void Voxel::logic_loop()
     auto tick_start = std::chrono::steady_clock::now();
     auto tick = std::size_t{ 0 };
 
-    while (!m_window.exitRequested()) // TODO: replace by thread safe
+    while (!m_window.exitRequested()) // TODO: replace by thread safe exit check
     {
+        const auto state_index = m_triple_buffer.produce();
+
         {
-            logic_step(tick++);
+            logic_step(tick++, state_index);
+            m_render_state[state_index].time.begin = tick_start;
         }
         { // timing
             tick_start += time_step;
@@ -384,35 +399,44 @@ void Voxel::logic_loop()
                 // compensate lag
                 tick_start = end_of_simulation_time;
         }
+        {
+            m_render_state[state_index].time.end = tick_start;
+        }
     }
 }
 
 //==============================================================================
-void Voxel::logic_step(const std::size_t tick)
+void Voxel::logic_step(const std::size_t tick, const unsigned int state_index)
 {
+    const auto delta_time = float{ 1.0f / float{ m_TPS } }; // make constexpr ?
+
+    auto & state = m_render_state[state_index];
+
     Input::Keyboard::Snapshot keyboard_snapshot;
     Input::Mouse::Snapshot mouse_snapshot;
     Input::pollEventsGetSnapshots(keyboard_snapshot, mouse_snapshot); // TODO: mouse should not reset internally. position should handle the user
 
-    const auto delta_time = float{ 1.0f / float{ m_TPS } }; // make constexpr ?
+    { // collect initial state
+        const auto position = m_player.getPosition();
+        state.player.begin  = { position.x, position.y, position.z };
+        state.pitch .begin  = m_player.getPitch();
+        state.yaw   .begin  = m_player.getYaw();
+    }
+    { // update state
+//      m_player.updateSpeed(m_settings.get(SPD_P)); // DON'T use m_settings from different thread
+        m_player.updateCameraAndItems(mouse_snapshot); // TODO: camera should take updates as input and not get the inputs themselves
+        m_player.updateVelocity(static_cast<float>(delta_time), keyboard_snapshot);
+        m_player.applyVelocity(static_cast<float>(delta_time));
 
-    // update position and stuff
-//    m_player.updateSpeed(m_settings.get(SPD_P)); // DON'T use m_settings from different thread
-    m_player.updateCameraAndItems(mouse_snapshot); // TODO: camera should take updates as input and not get the inputs themselves
-    m_player.updateVelocity(static_cast<float>(delta_time), keyboard_snapshot);
-    m_player.applyVelocity(static_cast<float>(delta_time));
-
-
-    m_world.tick(tick);
-
-    const auto state_index = m_triple_buffer.produce();
-    auto & state = m_render_state[state_index];
-
-    const auto position = m_player.getPosition();
-    state.player.begin  = { position.x, position.y, position.z };
-    state       .pitch  = m_player.getPitch();
-    state       .yaw    = m_player.getYaw();
-    state       .scroll = mouse_snapshot.getScrollMovement()[1];
+        m_world.tick(tick);
+    }
+    { // collect new state
+        const auto position = m_player.getPosition();
+        state.player.end = { position.x, position.y, position.z };
+        state.pitch .end = m_player.getPitch();
+        state.yaw   .end = m_player.getYaw();
+        state       .scroll = mouse_snapshot.getScrollMovement()[1];
+    }
 }
 
 //==============================================================================

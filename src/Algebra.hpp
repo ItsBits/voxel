@@ -244,6 +244,20 @@ T sum(const Vec<T, N> & x)
 }
 
 //======================================================================================================================
+template<typename T, std::size_t N>
+Vec<T, N> lerp_fast(const Vec<T, N> & x, const Vec<T, N> & y, const T a)
+{
+  return x + a * (y - x);
+}
+
+//======================================================================================================================
+template<typename T, std::size_t N>
+Vec<T, N> lerp_precise(const Vec<T, N> & x, const Vec<T, N> & y, const T a)
+{
+  return (T{ 1 } - a) * x + a * y;
+}
+
+//======================================================================================================================
 #define d(o)                                                    \
 template<typename T, std::size_t N>                             \
 Vec<T, N> operator o (const Vec<T, N> & x, const Vec<T, N> & y) \

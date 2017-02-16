@@ -53,7 +53,7 @@ private:
     void updateSettings(const Input::Keyboard::Snapshot & keyboard_snapshot);
 
     void logic_loop();
-    void logic_step(const std::size_t tick);
+    void logic_step(const std::size_t tick, const unsigned int state_index);
     void render_loop();
     void render_loop_old();
 
