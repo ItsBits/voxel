@@ -32,7 +32,7 @@ public:
 
   unsigned int produce()
   {
-    m_prod = m_back.exchange(m_prod & UPDATE_BIT) & CLEAR_BITS;
+    m_prod = m_back.exchange(m_prod | UPDATE_BIT) & CLEAR_BITS;
 
     return m_prod;
   }
