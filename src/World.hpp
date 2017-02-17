@@ -128,7 +128,8 @@ private:
             MOFF{ CSIZE / 2 },
             CRSIZE{ ceil_int_div(512, CSIZE) },
             MRSIZE{ ceil_int_div(512, MSIZE) },
-            CCSIZE{ ceil_int_div(MSIZE + MESH_BORDER_REQUIRED_SIZE * 2, CSIZE) + 1 + 0 }, // + any number
+//            CCSIZE{ ceil_int_div(MSIZE + MESH_BORDER_REQUIRED_SIZE * 2, CSIZE) + 1 + 0 }, // + any number
+            CCSIZE{ 16 }, // CCSIZE has been repurposed
             CRCSIZE{ ceil_int_div((MSIZE * REDISTANCE + MESH_BORDER_REQUIRED_SIZE * 2), (CSIZE * CRSIZE)) + 2 + 0 }, // + any number
             MRCSIZE{ CRCSIZE };
 
@@ -185,7 +186,10 @@ private:
 
     // loader thread data
     std::thread m_loader_thread;
-    Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE]; // TODO: use mod table
+    Block m_blocks[CHUNK_SIZE * CHUNK_CONTAINER_SIZE]; // TODO: use mod table (maybe?)
+    static_assert(CHUNK_CONTAINER_SIZES[0] == CCSIZE && CHUNK_CONTAINER_SIZES[1] == CCSIZE && CHUNK_CONTAINER_SIZES[2] == CCSIZE); // because see next line todo
+    static constexpr i32Vec3 BLOCKS_RADIUSES{ CCSIZE / 2 - 1, CCSIZE / 2 - 1, CCSIZE / 2 - 1 }; // TODO: CHUNK_CONTAINER_SIZES - 1 <= constexpr operator-
+    static_assert(min_constexpr(CHUNK_CONTAINER_SIZES) >= 4);
 
     struct ChunkStatus { i32Vec3 position; bool needs_save; };
     ModTable<ChunkStatus, int, CHUNK_CONTAINER_SIZES[0], CHUNK_CONTAINER_SIZES[1], CHUNK_CONTAINER_SIZES[2]> m_chunk_statuses;

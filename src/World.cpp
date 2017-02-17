@@ -31,6 +31,7 @@ constexpr i32Vec3 World::MESH_OFFSETS;
 constexpr i32Vec3 World::chunk_container_size;
 constexpr int World::SLEEP_MS;
 constexpr int World::STALL_SLEEP_MS;
+constexpr i32Vec3 World::BLOCKS_RADIUSES;
 
 //==============================================================================
 World::World() :
@@ -241,6 +242,8 @@ void World::loadRegionNew(const i32Vec3 region_position)
     }
     else
     {
+        Debug::print("Initialize new region ", to_string(region_position));
+
         // get rid of old data
         std::free(region.data);
         region.data_memory.reset();
@@ -250,7 +253,7 @@ void World::loadRegionNew(const i32Vec3 region_position)
         region.size = 0;
         region.data = nullptr;
         region.container_size = 0;
-        for (auto & i : region.metas) i = { 0, CType::NOWHERE, 0 };
+        for (auto & i : region.metas) i = { 0, CType::NOWHERE, { 0, nullptr } };
         for (auto & i : region.mesh_statuses) i = Region::MStatus::UNKNOWN;
     }
 
@@ -260,15 +263,17 @@ void World::loadRegionNew(const i32Vec3 region_position)
 //==============================================================================
 void World::loadChunkToChunkContainerNew(const i32Vec3 chunk_position, Block * const chunk, i32Vec3 * const chunk_container_meta)
 {
+//    Debug::print("Load chunk: ", to_string(chunk_position));
+
     // if already loaded
     if (all(*chunk_container_meta == chunk_position))
         return;
 
     const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
-    auto & chunk_region = m_regions[region_position];
+    const auto & chunk_region = m_regions[region_position];
     assert(all(chunk_region.position == region_position) && "Assuming that correct region is already loaded.");
 
-    auto & chunk_meta = chunk_region.metas[chunk_position];
+    const auto & chunk_meta = chunk_region.metas[chunk_position];
 
     // update mesh status // TODO: do this when sure that chunk is present and can be loaded
     *chunk_container_meta = chunk_position;
@@ -742,7 +747,7 @@ bool World::removeOutOfRangeMeshes(const i32Vec3 center_mesh)
 // TODO: refactor, redo synchronization
 void World::multiThreadMeshLoader(const int thread_id)
 {
-    std::unique_ptr<Block[]> container{ std::make_unique<Block[]>(CHUNK_SIZE) };
+    std::unique_ptr<Block[]> container{ std::make_unique<Block[]>(CHUNK_SIZE) }; // TODO: combine 'chunks' and 'container'
     static_assert(CSIZE == 16 && MSIZE == 16 && MOFF == 8, "Temporary.");
     constexpr size_t SZEE = CHUNK_SIZE * product_constexpr(chunk_container_size);
     std::unique_ptr<i32Vec3[]> chunk_positions{ std::make_unique<i32Vec3[]>(SZEE) }; // TODO: correct algorithm for determining needed size
@@ -854,10 +859,20 @@ void World::multiThreadMeshLoader(const int thread_id)
                 const auto & chunk_region = m_regions[region_position];
                 const auto & chunk_meta = chunk_region.metas[chunk_position];
 
-                if (chunk_meta.loc == CType::NOWHERE)
+                if (chunk_meta.loc == CType::NOWHERE) // TODO: use the other container when chunk is inside it to avoid 1 memory copy
                 {
                     generateChunkNew(container.get(), from, to, WorldType::SIMPLEX_2D);
                     saveChunkToRegionNew(container.get(), chunk_position);
+                }
+
+                if (all(abs(chunk_position - center_chunk) <= BLOCKS_RADIUSES))
+                { // load to storage
+                    const auto index = position_to_index(chunk_position, CHUNK_CONTAINER_SIZES) * CHUNK_SIZE;
+                    auto * this_chunk = m_blocks + index;
+                    auto & this_chunk_meta = m_chunk_statuses[chunk_position];
+
+                    Debug::print("Load chunk to container: ", to_string(chunk_position));
+                    loadChunkToChunkContainerNew(chunk_position, this_chunk, &(this_chunk_meta.position));
                 }
             }
             break;
@@ -1169,6 +1184,7 @@ void World::saveChunkToRegionNew(const Block * const source, const i32Vec3 chunk
     const auto region_position = floor_div(chunk_position, CHUNK_REGION_SIZES);
     auto & region = m_regions[region_position];
 
+//    Debug::print("Save chunk: ", to_string(chunk_position));
     std::unique_lock<std::mutex> lock{ region.write_lock }; // TODO: figure something out. this lock is serializing too much. compress2() is probably taking a lot of time
 
 
@@ -1301,5 +1317,5 @@ void World::saveRegionToDriveNew(const i32Vec3 region_position)
 //==============================================================================
 void World::tick(const std::size_t tick)
 {
-    Debug::print("Tick ", tick);
+    //Debug::print("Tick ", tick);
 }

@@ -333,6 +333,13 @@ constexpr T product_constexpr(const Vec<T, N> x, const std::size_t i = 0)
 }
 
 //======================================================================================================================
+template<typename T, std::size_t N>
+constexpr T min_constexpr(const Vec<T, N> & x, const std::size_t i = 0) // TODO: check correctness
+{
+    return (i == N - 1) ? x[N - 1] : std::min(x[i], min_constexpr(x, i + 1));
+}
+
+//======================================================================================================================
 template<typename T>
 constexpr T ceil_int_div(const T x, const T y)
 {
