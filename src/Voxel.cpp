@@ -106,21 +106,37 @@ void Voxel::render_loop()
     int frame_counter = 0;
     double last_fps_update = last_time;
 
+    auto state_index = m_triple_buffer.consume();
+
     while (!m_window.exitRequested()) // TODO: replace by thread safe
     {
-        const auto state_index = m_triple_buffer.consume();
-        const auto current_render_state = m_render_state[state_index];
-
         const auto curr_time = std::chrono::steady_clock::now();
         const double current_time = glfwGetTime(); // TODO: replace by std::chrono
         double delta_time = current_time - last_time; // TODO: separate framerate from user input, introtuce fixed timestamp for user updates (except maybe head rotation)
         last_time = current_time;
 
-//        Debug::print("Delay: ", std::chrono::duration_cast<std::chrono::milliseconds>(curr_time - current_render_state.time.end).count() / 1000.0);
+        {
+            const auto & current_render_state = m_render_state[state_index];
+
+            const double us_delay = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(curr_time - current_render_state.time.end).count()) / 1000'000.0;
+            const double alpha = us_delay * static_cast<double>(m_TPS);
+
+            // only get new buffer if this one is old
+            if (alpha > 1.0)
+            {
+//                Debug::print("New state. old alpha=", alpha);
+                state_index = m_triple_buffer.consume();
+            }
+        }
+
+        const auto & current_render_state = m_render_state[state_index];
 
         const double us_delay = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(curr_time - current_render_state.time.end).count()) / 1000'000.0;
         const double alpha = us_delay * static_cast<double>(m_TPS);
         if (alpha > 1.0) Debug::print("Lag? Alpha:", alpha);
+
+//        Debug::print(alpha);
+//        Debug::print(state_index, ", alpha: ", alpha);
 
         const auto & crs = current_render_state;
         const auto position_lerpd = lerp_fast(crs.player.begin, crs.player.end, static_cast<float>(alpha));
@@ -379,10 +395,11 @@ void Voxel::logic_loop()
     auto tick_start = std::chrono::steady_clock::now();
     auto tick = std::size_t{ 0 };
 
+    auto state_index = m_triple_buffer.produce();
+
     while (!m_window.exitRequested()) // TODO: replace by thread safe exit check
     {
-        const auto state_index = m_triple_buffer.produce();
-
+//        Debug::print(state_index);
         {
             logic_step(tick++, state_index);
             m_render_state[state_index].time.begin = tick_start;
@@ -392,16 +409,24 @@ void Voxel::logic_loop()
             const auto end_of_simulation_time = std::chrono::steady_clock::now();
 
             if (end_of_simulation_time < tick_start)
+            {
                 // wait for next tick
                 // TODO: compensate scheduler error
-                std::this_thread::sleep_until(tick_start);
+                std::this_thread::sleep_until(tick_start); // TODO: think of something, because sleep_until will oversleep, alpha in renderer will often go over 1.0
+                m_render_state[state_index].time.end = tick_start;
+                state_index = m_triple_buffer.produce(); // get new buffer
+            }
             else
+            {
                 // compensate lag
                 tick_start = end_of_simulation_time;
+                m_render_state[state_index].time.end = tick_start;
+                state_index = m_triple_buffer.produce(); // get new buffer
+            }
         }
-        {
-            m_render_state[state_index].time.end = tick_start;
-        }
+//        {
+//            m_render_state[state_index].time.end = tick_start;
+//        }
     }
 }
 

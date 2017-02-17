@@ -871,7 +871,7 @@ void World::multiThreadMeshLoader(const int thread_id)
                     auto * this_chunk = m_blocks + index;
                     auto & this_chunk_meta = m_chunk_statuses[chunk_position];
 
-                    Debug::print("Load chunk to container: ", to_string(chunk_position));
+//                    Debug::print("Load chunk to container: ", to_string(chunk_position));
                     loadChunkToChunkContainerNew(chunk_position, this_chunk, &(this_chunk_meta.position));
                 }
             }
